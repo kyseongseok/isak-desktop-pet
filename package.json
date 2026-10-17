@@ -1,0 +1,48 @@
+{
+  "name": "isak-desktop-pet",
+  "productName": "이삭이",
+  "version": "0.1.0",
+  "description": "농촌진흥청 캐릭터 이삭이 데스크톱 펫 — 초과근무 근무확인 알림 도우미",
+  "main": "app/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac"
+  },
+  "author": "kskwon",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "kr.go.rda.isak-pet",
+    "productName": "이삭이",
+    "files": [
+      "app/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "app/renderer/img/idle.png"
+    },
+    "portable": {
+      "artifactName": "이삭이-${version}.exe"
+    },
+    "mac": {
+      "target": "dir",
+      "icon": "app/renderer/img/idle.png"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<title>이삭이</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="shadow"></div>
+<div id="pet"><img id="petImg" alt="이삭이" draggable="false"><div class="handle" title="끌어서 크기 조정"></div></div>
+<div id="bubble"></div>
+<div id="ctxMenu">
+  <button data-menu="resize">📏 크기 조정</button>
+  <hr>
+  <button data-menu="ask" data-ot="none asked declined done">⏰ 초과근무 시작</button>
+  <button data-menu="checked" data-ot="active">⏰ 근무확인 눌렀어요</button>
+  <button data-menu="fixtime" data-ot="active">✏️ 누른 시각 고치기</button>
+  <button data-menu="exclude" data-ot="active">⏸ 제외시간 시작</button>
+  <button data-menu="resume" data-ot="excluded">▶ 복귀했어요</button>
+  <button data-menu="finish" data-ot="active excluded">🏠 초과근무 종료</button>
+  <hr>
+  <button data-menu="hide">🙈 10분 숨기기</button>
+  <button data-menu="quit">✖ 종료</button>
+</div>
+<script src="pet.js"></script>
+</body>
+</html>

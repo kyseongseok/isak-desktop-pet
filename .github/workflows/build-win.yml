@@ -1,0 +1,22 @@
+# 윈도우용 포터블 exe 자동 빌드
+# GitHub에 올린 뒤 Actions 탭에서 "Run workflow"를 누르면 dist/이삭이-x.y.z.exe 가 Artifacts로 나옵니다.
+name: build-win
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - run: node node_modules/electron/install.js
+      - run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: isak-pet-win
+          path: dist/*.exe
