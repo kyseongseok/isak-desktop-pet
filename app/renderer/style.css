@@ -65,3 +65,9 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
 }
 #ctxMenu button:hover { background: #effaf5; }
 #ctxMenu hr { border: 0; border-top: 1px solid #eee; margin: 4px 2px; }
+#ctxStatus {
+  padding: 6px 10px 8px; margin-bottom: 4px; border-bottom: 1px solid #eee;
+  font-size: 12px; color: #667; line-height: 1.4;
+}
+#ctxStatus b { color: #1d6b53; }
+#ctxStatus.on { background: #effaf5; border-radius: 6px; border-bottom: 0; }

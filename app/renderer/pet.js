@@ -387,6 +387,17 @@ pet.addEventListener('contextmenu', (e) => {
   menu.querySelectorAll('[data-ot]').forEach(el => {
     el.style.display = el.dataset.ot.split(' ').includes(OT.status) ? '' : 'none';
   });
+  // 지금 어떤 상태인지 맨 위에 표시: 초과근무 중일 때만 근무확인 관련 메뉴가 나옴
+  const st = document.getElementById('ctxStatus');
+  st.className = (OT.status === 'active' || OT.status === 'excluded') ? 'on' : '';
+  st.innerHTML = {
+    active: `🟢 <b>초과근무 중</b> · 기준 ${fmt(OT.base)}<br>다음 마감 <b>${fmt(deadline())}</b>${OT.pendingPress ? ' (근무확인 대기)' : ''}`,
+    excluded: `⏸ <b>제외시간</b> · 알람 쉬는 중`,
+    none: env.isWorkday ? '평일 근무 중 · 17:55에 초과근무 여부를 여쭤볼게요' : '휴일이에요 · 초과근무 알람 꺼짐',
+    asked: '초과근무 여부 답변 기다리는 중',
+    declined: '오늘은 초과근무 안 함',
+    done: '오늘 초과근무 종료함',
+  }[OT.status];
   menu.style.display = 'block';
   const w = menu.offsetWidth, h = menu.offsetHeight;
   menu.style.left = `${Math.max(0, Math.min(e.clientX, env.width - w - 8))}px`;
