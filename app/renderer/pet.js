@@ -108,20 +108,23 @@ const CARE = [
   ['옆자리 동료에게 "파이팅!" 한마디 건네 볼까요?', 'cheer'],
   ['커피 한 잔 하고 올까요? ☕', 'produce'],
 ];
-let lastCare = 0;
+let lastCare = -Infinity;                 // 0이면 켠 뒤 40분 동안 한 번도 못 말함
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const scene = () => 15000 + Math.random() * 10000;
 const actions = {
   hello() { emote('hello', 2500, { poke: 3 }); s.tiltTarget = 0.12; say('안녕하세요! 오늘도 파이팅 🌾'); },
   care() {
-    if (performance.now() - lastCare < 40 * MIN) return;     // 너무 자주 말하지 않기
+    if (performance.now() - lastCare < 25 * MIN) return;     // 너무 자주 말하지 않기
     lastCare = performance.now();
     const [text, face] = CARE[Math.floor(Math.random() * CARE.length)];
     emote(face, 4500, { poke: 3 }); say(text, { ms: 4500 });
   },
-  sleep() { emote('sleep', 8000); say('Zzz…', { ms: 8000 }); },
-  curious() { emote('curious', 2500, { poke: 2 }); },
-  research() { emote('research', 4000, { poke: 2 }); },
-  farm() { emote('farm', 4000, { poke: 2 }); },
-  produce() { emote('produce', 4000, { poke: 3 }); },
+  sleep() { emote('sleep', 20000); say('Zzz…', { ms: 4000 }); },
+  curious() { emote('curious', 6000, { poke: 2 }); say(pick(['이건 뭐지…? 🤔', '흠… 뭔가 수상한데', '저기 뭐가 있는 것 같아요'])); },
+  // 딴짓 장면: 15~25초 동안 이어지고, 말풍선은 처음 4초만
+  research() { emote('research', scene(), { poke: 2 }); say(pick(['새싹이 잘 자라고 있나 볼까요 🌱', '오늘의 연구, 열심히! 🔬', '흠… 이 품종은 흥미롭군요']), { ms: 4000 }); },
+  farm() { emote('farm', scene(), { poke: 2 }); say(pick(['밭 좀 갈고 올게요 🌾', '흙 냄새가 좋네요~', '농사는 타이밍이죠!']), { ms: 4000 }); },
+  produce() { emote('produce', scene(), { poke: 3 }); say(pick(['수확 완료! 🥕', '올해 농사 풍년이에요 🍎', '싱싱한 채소 드실래요?']), { ms: 4000 }); },
 };
 
 function startWalk() {
@@ -468,7 +471,7 @@ function tick(now) {
     else if (r < 0.8) actions.curious();
     else if (r < 0.93) actions.care();
     else actions.sleep();
-    if (s.mode === 'idle') s.nextAuto = now + 15000;
+    if (s.mode === 'idle') s.nextAuto = now + 12000;
   }
 
   // 말랑 스프링
