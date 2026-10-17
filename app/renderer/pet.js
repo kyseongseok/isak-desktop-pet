@@ -69,7 +69,8 @@ function say(html, { ms = 3500, alarm = false, choices = null } = {}) {
   }
   clearTimeout(bubbleTimer);
   if (ms) bubbleTimer = setTimeout(hush, ms);
-  isak.setOnTop(true);                       // 말할 때만 다른 창 위로
+  // 알람과 답이 필요한 질문만 다른 창 위로 올라옴. 케어 메시지·딴짓 대사는 평소 자리에서 조용히
+  isak.setOnTop(alarm || !!choices);
 }
 function hush() { bubble.style.display = 'none'; clearTimeout(bubbleTimer); isak.setOnTop(false); }
 const bubbleBusy = () => bubble.style.display === 'block' && !!bubble.querySelector('.choices, input');
