@@ -156,7 +156,7 @@ function otTick() {
   // 앱을 켜 둔 채 근무일이 바뀌면(새벽 5시 지남) 어제 기록은 버리고 새로 시작
   if (OT.date !== workDate()) { interrupt(); otReset(); }
   // 마감이 한참 지났는데 응답이 없으면 퇴근한 것으로 보고 조용히 종료 (어제 알람이 아침까지 남지 않게)
-  if (OT.status === 'active' && !OT.pendingPress && t - deadline() > STALE_MS) {
+  if (OT.status === 'active' && OT.base && !OT.pendingPress && t - deadline() > STALE_MS) {
     OT.status = 'done'; otSave(); interrupt();
     say('한참 응답이 없어서 초과근무 알람을 껐어요 🙂<br><small>다시 하려면 우클릭 → 초과근무 시작</small>', { ms: 8000 });
   }
@@ -212,7 +212,10 @@ function otWait(planAt) {
   OT.status = 'active'; OT.base = null; OT.stage = 0; OT.pendingPress = true; OT.planAt = planAt; OT.planReminded = false; otSave();
   interrupt();
   emote('best', 3000, { poke: 3 });
-  say(`알겠어요! 근무확인을 <b>누르면 저를 클릭</b>해 주세요<br><small>그 시각부터 1시간씩 셀게요${planAt ? ` · ${fmt(planAt)}에 한 번 여쭤볼게요` : ''}</small>`, { ms: 6000 });
+  say(`알겠어요! 근무확인을 누르면 <b>저를 클릭하거나 아래 버튼</b>을 눌러 주세요<br><small>그 시각부터 1시간씩 셀게요${planAt ? ` · ${fmt(planAt)}에 한 번 여쭤볼게요` : ''}</small>`, { ms: 0, choices: [
+    { label: '근무확인 눌렀어요', onClick: otPressed },
+    { label: '알겠어요', secondary: true, onClick: interrupt },
+  ]});
 }
 // 기본 기준 시각: 평일 18시 전이면 18:00, 그 외엔 가장 최근 정시 (정시마다 눌렀다고 보고)
 function defaultBase() {
@@ -272,6 +275,7 @@ function otStart(base) {
 }
 
 function otAlarm(stage) {
+  console.log(`[alarm] stage ${stage}`);
   interrupt();
   const dl = fmt(deadline());
   if (stage === 4) {
@@ -330,8 +334,21 @@ function otResume() {
     { label: '눌렀어요', onClick: otPressed },
     { label: '지금 누를게요', secondary: true, onClick: () => {
         interrupt(); emote('alarm', 0, { poke: 3 });
-        say('근무확인 누르고 저를 클릭해 주세요! 🔔', { ms: 0, alarm: true }); } },
+        say('근무확인 누르고 저를 클릭해 주세요! 🔔', { ms: 0, alarm: true, choices: [{ label: '근무확인 눌렀어요', onClick: otPressed }] }); } },
   ]});
+}
+
+// 개발·확인용: 알람 4단계를 15초 간격으로 차례로 울림 (기준 시각을 뒤로 옮겨 가며)
+function otAlarmTest() {
+  interrupt();
+  OT.status = 'active'; OT.pendingPress = false; OT.planAt = 0; OT.stage = 0; OT.base = Date.now() + 10 * MIN - 60 * MIN;
+  const steps = [5 * MIN + 2000, 3 * MIN + 2000, MIN + 2000, -2000];     // 남은 시간
+  say('알람 테스트: 15초마다 5분 전 → 3분 전 → 1분 전 → 초과 순서로 울려요', { ms: 4000 });
+  steps.forEach((remain, i) => setTimeout(() => {
+    OT.base = Date.now() + remain - 60 * MIN; OT.stage = i; otSave();
+    console.log(`[alarm-test] step ${i + 1}, remain ${Math.round(remain / 1000)}s`);
+  }, 3000 + i * 15000));
+  setTimeout(() => { interrupt(); otReset(); say('알람 테스트 끝! 원래 상태로 돌아왔어요', { ms: 4000 }); }, 3000 + 4 * 15000 + 12000);
 }
 
 function otFinish() {
@@ -348,6 +365,32 @@ function onUserReturn({ awaySec }) {
     interrupt(); emote('hello', 2500, { poke: 3 }); say('다시 오셨네요! 🙂');
   }
 }
+
+// ---------- 튜토리얼: 처음 설치했을 때 한 바퀴 안내 (트레이에서 다시 볼 수 있음) ----------
+const tutorial = (() => {
+  const steps = [
+    ['hello', '안녕하세요, 저는 <b>이삭이</b>예요! 🌾<br>바탕화면에서 같이 지낼게요. 잠깐 소개해 드릴게요'],
+    ['curious', '저를 <b>클릭</b>하면 말랑하고, <b>끌어서 던지면</b> 튕겨요.<br>작업할 땐 조용히 걸어 다니기만 해요'],
+    ['think', '평일 <b>17:55</b>에 "오늘 초과 근무 하시나요?" 하고 여쭤봐요.<br>예라고 하면 <b>근무확인 1시간 마감</b>을 챙겨드려요'],
+    ['alarm', '마감 <b>5·3·1분 전</b>에 알려드려요.<br>근무확인을 누르면 <b>저를 클릭하거나 버튼</b>을 눌러 주세요. 그 시각부터 다시 1시간이에요'],
+    ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>자리를 비울 땐 우클릭 → <b>제외시간</b>'],
+    ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리(클럽🪩 앰뷸런스🚑 경찰차🚓) · 크기 조정 · 미니게임'],
+    ['cheer', '<b>코인</b>은 2시간 일할 때마다 1개, 근무확인을 제때 누르면 +1 🪙<br>코인으로 <b>미니게임</b>을 할 수 있어요 (1판 1코인)'],
+    ['best', '설정은 메뉴 막대의 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br>이 안내는 트레이 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
+  ];
+  let i = 0;
+  function showStep() {
+    const [face, html] = steps[i];
+    interrupt(); emote(face, 0, { poke: 3 });
+    say(`<small>${i + 1}/${steps.length}</small><br>${html}`, { ms: 0, choices: [
+      { label: i === steps.length - 1 ? '시작!' : '다음', onClick: () => { i++; i < steps.length ? showStep() : finish(); } },
+      ...(i > 0 ? [{ label: '이전', secondary: true, onClick: () => { i--; showStep(); } }] : []),
+      { label: '건너뛰기', secondary: true, onClick: finish },
+    ]});
+  }
+  function finish() { interrupt(); isak.saveState({ tutorialDone: true }); emote('hello', 2500, { poke: 3 }); say('오늘도 파이팅! 🌾', { ms: 2500 }); }
+  return { start() { i = 0; showStep(); } };
+})();
 
 // ---------- 드래그 & 던지기 ----------
 let drag = null;
@@ -680,7 +723,8 @@ let resumedSession = false;
       emote('hello', 3000, { poke: 3 }); say(OT.base ? `다시 켜졌네요! 초과근무 이어서 할게요 🙂<br>${nextInfo()}` : '다시 켜졌네요! 근무확인을 누르면 저를 클릭해 주세요 🙂', { ms: 6000 });
     } else if (resumedSession) {
       emote('sleep', 0); say('제외시간 중이었죠? 돌아오셨으면 저를 클릭해 주세요', { ms: 0, choices: [{ label: '복귀했어요', onClick: otResume }] });
-    } else actions.hello();
+    } else if (!st.tutorialDone) tutorial.start();   // 처음 설치: 안내 한 바퀴
+    else actions.hello();
   }, 600);
 })();
 
@@ -708,4 +752,6 @@ isak.on('command', (c) => {
   else if (c.type === 'autoplay') autoplay = c.value;
   else if (c.type === 'sound') { siren.configure(c.value); if (c.value.theme) siren.preview(c.value.theme); }
   else if (c.type === 'siren-test') { siren.play(3); setTimeout(() => siren.stop(), 4000); }
+  else if (c.type === 'alarm-test') otAlarmTest();
+  else if (c.type === 'tutorial') tutorial.start();
 });

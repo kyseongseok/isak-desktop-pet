@@ -266,7 +266,9 @@ function updateTray() {
         click: () => { saveState({ sound: { ...state.sound, volume: v } }); send('command', { type: 'sound', value: { volume: v } }); } })),
       { type: 'separator' },
       { label: '지금 테스트 (4초)', click: () => send('command', { type: 'siren-test' }) },
+      { label: '알람 흐름 테스트 (5·3·1분 전·초과, 1분)', click: () => send('command', { type: 'alarm-test' }) },
     ] },
+    { label: '튜토리얼 다시 보기', click: () => send('command', { type: 'tutorial' }) },
     { label: '자동 행동 (걷기·딴짓)', type: 'checkbox', checked: state.autoplay,
       click: (item) => { saveState({ autoplay: item.checked }); send('command', { type: 'autoplay', value: item.checked }); } },
     { label: '부팅 시 자동 실행', type: 'checkbox', checked: state.autostart,
@@ -293,6 +295,7 @@ app.whenReady().then(() => {
   createTray();
   applyAutostart();
   if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing)
+  if (process.env.ISAK_TEST_ALARM) setTimeout(() => send('command', { type: 'alarm-test' }), 4000);   // 개발용: 알람 흐름 자동 테스트
 });
 app.on('window-all-closed', () => app.quit());
 app.on('second-instance', () => { if (win) win.show(); });
