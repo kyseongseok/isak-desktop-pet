@@ -145,7 +145,7 @@ const workDate = (t = Date.now()) => new Date(t - 5 * 60 * MIN).toDateString();
 const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: workDate() };
 const STALE_MS = 90 * MIN;            // 마감 후 이만큼 응답이 없으면 퇴근한 것으로 보고 알람을 끔
 const deadline = () => OT.base + 60 * MIN;
-function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date } }); }
+function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date, snoozeUntil: OT.snoozeUntil } }); }
 function otReset() {
   OT.status = 'none'; OT.base = null; OT.stage = 0; OT.pendingPress = false; OT.snoozeUntil = 0;
   OT.date = workDate(); otSave();
@@ -182,24 +182,34 @@ function otAsk(greeting = '') {
   ]});
 }
 
+// 기본 기준 시각: 평일 18시 전이면 18:00, 그 외엔 가장 최근 정시 (정시마다 눌렀다고 보고)
+function defaultBase() {
+  const now = new Date();
+  if (env.isWorkday && now.getHours() < 18) return todayAt(18, 0);
+  now.setMinutes(0, 0, 0); return now.getTime();
+}
 function otChooseBase() {
   say('근무확인 알람 기준을 골라 주세요', { ms: 0, choices: [
-    { label: '18:00 기본', onClick: () => otStart(todayAt(18, 0)) },
+    { label: `정시 기본 (${fmt(defaultBase())})`, onClick: () => otStart(defaultBase()) },
     { label: '방금 눌렀어요', onClick: () => otStart(Date.now()) },
     { label: '시각 입력', secondary: true, onClick: () =>
-        askTime('근무확인을 누른 시각을 알려 주세요', Date.now(), otStart) },
+        askTime('근무확인을 누른 시각을 알려 주세요', Date.now(), otStart, () => otAsk()) },
+    { label: '← 돌아가기', secondary: true, onClick: () => otAsk() },
   ]});
 }
 
-function askTime(html, defMs, cb) {
+function askTime(html, defMs, cb, onCancel = interrupt) {
   say(html, { ms: 0, choices: [
     { label: '확인', onClick: () => {
         const v = bubble.querySelector('input').value;
         if (!v) return;
         const [h, m] = v.split(':').map(Number);
-        cb(todayAt(h, m));
+        let ms = todayAt(h, m);
+        if (ms - Date.now() > 12 * 60 * MIN) ms -= 24 * 60 * MIN;      // 미래로 너무 멀면 어제 시각
+        if (Date.now() - ms > 12 * 60 * MIN) ms += 24 * 60 * MIN;      // 과거로 너무 멀면 내일(다음 날 새벽) 시각
+        cb(ms);
     } },
-    { label: '취소', secondary: true, onClick: interrupt },
+    { label: '취소', secondary: true, onClick: onCancel },
   ]});
   const input = document.createElement('input');
   input.type = 'time'; input.value = fmt(defMs);
@@ -233,7 +243,7 @@ function otAlarm(stage) {
   isak.alarmStage({ stage, text, deadline: dl });
   emote('alarm', 0, { poke: 4 + stage });
   s.shake = stage;
-  say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭해 주세요</small>`, { ms: 0, alarm: true });
+  say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭하거나 ↓</small>`, { ms: 0, alarm: true, choices: [{ label: '근무확인 눌렀어요', onClick: otPressed }] });
   if (stage === 1) isak.notify('이삭이', `근무확인 누를 시간이에요! (${dl}까지)`);
 }
 
@@ -608,7 +618,7 @@ let resumedSession = false;
   setSize(st.size, false);
   applyEnv({ ...e, xRatio: st.xRatio });
   if (st.ot && st.ot.status) {              // 앱을 껐다 켜도 초과근무 상태 이어가기
-    OT.status = st.ot.status; OT.base = st.ot.base; OT.date = st.ot.date || OT.date;
+    OT.status = st.ot.status; OT.base = st.ot.base; OT.date = st.ot.date || OT.date; OT.snoozeUntil = st.ot.snoozeUntil || 0;
     if (OT.status === 'asked') OT.status = 'none';
     if (OT.date !== workDate()) otReset();                                                 // 다른 근무일의 기록은 버림
     else if (OT.status === 'active' && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 마감이 한참 지난 기록은 이어가지 않음
