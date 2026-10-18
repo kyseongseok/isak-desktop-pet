@@ -161,7 +161,7 @@ function pickWord() {
 function spawnBird(spec, boss = false) {
   const w = boss ? Math.min(W - 40, 40 + spec.word.length * 15) : 36 + [...spec.word].length * (spec.kind === 'en' ? 12 : 18);
   const speed = (boss ? 16 : 30 + S.stage * 6) * rnd(0.9, 1.15);
-  S.birds.push({ ...spec, boss, w, x: rnd(30 + w / 2, W - 30 - w / 2), y: boss ? 150 : rnd(130, 170),   // 풍선이 HUD에 가리지 않는 높이 vy: speed, flap: rnd(0, 6), state: 'fly', t: 0, dir: Math.random() < 0.5 ? 1 : -1 });
+  S.birds.push({ ...spec, boss, w, x: rnd(30 + w / 2, W - 30 - w / 2), y: boss ? 150 : rnd(130, 170), /* 풍선이 HUD에 가리지 않는 높이 */ vy: speed, flap: rnd(0, 6), state: 'fly', t: 0, dir: Math.random() < 0.5 ? 1 : -1 });
 }
 
 // ---------- 입력 처리 ----------
