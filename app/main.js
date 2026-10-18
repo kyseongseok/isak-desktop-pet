@@ -272,6 +272,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyAutostart();
+  if (process.env.ISAK_OPEN_GAME) setTimeout(openGame, 1500);   // 개발용: 게임 창 바로 열기
 });
 app.on('window-all-closed', () => app.quit());
 app.on('second-instance', () => { if (win) win.show(); });

@@ -398,5 +398,5 @@ $('bgm').onclick = () => $('bgm').classList.toggle('off', !bgm.toggle());
 bridge.onAlarm((info) => { if (S.screen === 'play') pause(info.text); });
 
 // ---------- 시작 ----------
-show('intro'); refreshIntro();
+show('intro'); refreshIntro().then(() => console.log('[game] intro ready, coins', S.coins, 'best', S.best));
 requestAnimationFrame(frame);
