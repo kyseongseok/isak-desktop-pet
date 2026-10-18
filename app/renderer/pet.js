@@ -152,6 +152,7 @@ function otReset() {
 }
 
 function otTick() {
+  if (tutorial.active) return;                 // 튜토리얼이 끝날 때까지 질문·알람 보류
   const t = Date.now();
   // 앱을 켜 둔 채 근무일이 바뀌면(새벽 5시 지남) 어제 기록은 버리고 새로 시작
   if (OT.date !== workDate()) { interrupt(); otReset(); }
@@ -359,6 +360,7 @@ function otFinish() {
 
 // 자리 비움 후 복귀 (메인 프로세스가 10분 이상 입력 없음 → 입력 재개를 감지)
 function onUserReturn({ awaySec }) {
+  if (tutorial.active) return;
   if (OT.status === 'asked') {
     otAsk(minuteOfDay(Date.now()) >= 18 * 60 ? '식사 맛있게 하셨어요? 🍚<br>' : '다시 오셨네요! ');
   } else if (awaySec >= AWAY_REASK_SEC && !bubbleBusy()) {
@@ -378,8 +380,9 @@ const tutorial = (() => {
     ['cheer', '<b>코인</b>은 2시간 일할 때마다 1개, 근무확인을 제때 누르면 +1 🪙<br>코인으로 <b>미니게임</b>을 할 수 있어요 (1판 1코인)'],
     ['best', '설정은 메뉴 막대의 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br>이 안내는 트레이 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
   ];
-  let i = 0;
+  let i = 0, active = false;
   function showStep() {
+    active = true;
     const [face, html] = steps[i];
     interrupt(); emote(face, 0, { poke: 3 });
     say(`<small>${i + 1}/${steps.length}</small><br>${html}`, { ms: 0, choices: [
@@ -388,8 +391,8 @@ const tutorial = (() => {
       { label: '건너뛰기', secondary: true, onClick: finish },
     ]});
   }
-  function finish() { interrupt(); isak.saveState({ tutorialDone: true }); emote('hello', 2500, { poke: 3 }); say('오늘도 파이팅! 🌾', { ms: 2500 }); }
-  return { start() { i = 0; showStep(); } };
+  function finish() { active = false; interrupt(); isak.saveState({ tutorialDone: true }); emote('hello', 2500, { poke: 3 }); say('오늘도 파이팅! 🌾', { ms: 2500 }); }
+  return { start() { interrupt(); i = 0; showStep(); }, get active() { return active; } };
 })();
 
 // ---------- 드래그 & 던지기 ----------
@@ -560,7 +563,7 @@ const menuActions = {
   typing: () => openGame('typing'),
   siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
-  resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(),
+  resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(), tutorial: () => tutorial.start(),
 };
 menu.addEventListener('click', (e) => {
   const item = e.target.closest('[data-menu]');
