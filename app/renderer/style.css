@@ -32,11 +32,13 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
 
 /* 말풍선 */
 #bubble {
-  position: absolute; z-index: 55; max-width: 260px; padding: 10px 14px;
+  position: absolute; z-index: 55; max-width: 280px; padding: 10px 14px;
   background: #fff; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.22);
-  font-size: 14px; color: #1e3d33; line-height: 1.4; display: none;
+  font-size: 14px; color: #1e3d33; line-height: 1.45; display: none;
   transform: translate(-50%, -100%);
+  word-break: keep-all; overflow-wrap: break-word;   /* 한국어 단어 중간에서 줄이 끊기지 않게 */
 }
+#bubble.wide { max-width: 320px; }
 #bubble::after {
   content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
   border: 8px solid transparent; border-top-color: #fff; border-bottom: 0;

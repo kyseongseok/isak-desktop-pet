@@ -72,7 +72,7 @@ function say(html, { ms = 3500, alarm = false, choices = null } = {}) {
   // 알람과 답이 필요한 질문만 다른 창 위로 올라옴. 케어 메시지·딴짓 대사는 평소 자리에서 조용히
   isak.setOnTop(alarm || !!choices);
 }
-function hush() { bubble.style.display = 'none'; clearTimeout(bubbleTimer); isak.setOnTop(false); }
+function hush() { bubble.style.display = 'none'; bubble.classList.remove('wide'); clearTimeout(bubbleTimer); isak.setOnTop(false); }
 const bubbleBusy = () => bubble.style.display === 'block' && !!bubble.querySelector('.choices, input');
 
 // ---------- 감정 표현 ----------
@@ -371,28 +371,35 @@ function onUserReturn({ awaySec }) {
 
 // ---------- 튜토리얼: 처음 설치했을 때 한 바퀴 안내 (트레이에서 다시 볼 수 있음) ----------
 const tutorial = (() => {
+  // [표정, 내용, 추가 버튼(선택)]
   const steps = [
     ['hello', '안녕하세요, 저는 <b>이삭이</b>예요! 🌾<br>바탕화면에서 같이 지낼게요. 잠깐 소개해 드릴게요'],
     ['curious', '저를 <b>클릭</b>하면 말랑하고, <b>끌어서 던지면</b> 튕겨요.<br>작업할 땐 조용히 걸어 다니기만 해요'],
-    ['think', '평일 <b>17:55</b>에 "오늘 초과 근무 하시나요?" 하고 여쭤봐요.<br>예라고 하면 <b>근무확인 1시간 마감</b>을 챙겨드려요'],
+    ['think', '평일 <b>17:55</b>에 "오늘 초과 근무 하시나요?" 하고 여쭤봐요.<br>주말·공휴일엔 켜질 때 바로 여쭤보고요.<br>예라고 하면 <b>근무확인 1시간 마감</b>을 챙겨드려요'],
     ['alarm', '마감 <b>5·3·1분 전</b>에 알려드려요.<br>근무확인을 누르면 <b>저를 클릭하거나 버튼</b>을 눌러 주세요. 그 시각부터 다시 1시간이에요'],
-    ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>자리를 비울 땐 우클릭 → <b>제외시간</b>'],
-    ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리(클럽🪩 앰뷸런스🚑 경찰차🚓) · 크기 조정 · 미니게임'],
-    ['cheer', '<b>코인</b>은 2시간 일할 때마다 1개, 근무확인을 제때 누르면 +1 🪙<br>코인으로 <b>미니게임</b>을 할 수 있어요 (1판 1코인)'],
-    ['best', '설정은 메뉴 막대의 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br>이 안내는 트레이 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
+    ['alarm', '알람 소리는 네 가지 중 고를 수 있어요. 눌러서 들어보세요 👇<br><small>스피커를 켜거나 음소거를 해제해 두시면 좋아요. 기본은 "조용히"고, 우클릭 → 알람 소리 설정에서 바꿔요</small>',
+      [['🔕', () => siren.preview('quiet')], ['🪩 클럽', () => siren.preview('club')], ['🚑 앰뷸런스', () => siren.preview('ambulance')], ['🚓 경찰차', () => siren.preview('police')]]],
+    ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>개인 용무로 자리를 비울 땐 우클릭 → <b>제외시간 시작</b>, 돌아오면 저를 클릭해 주세요'],
+    ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리 설정 · 크기 조정 · 미니게임 · 숨기기'],
+    ['best', '<b>코인</b>은 실제로 일한 시간 2시간마다 1개 🪙 (자리 비운 시간은 빼고요)<br>근무확인을 제때 누르면 +1, <b>최대 3개</b>까지만 모여요'],
+    ['cheer', '코인 1개로 <b>미니게임</b> 한 판!<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
+    ['hello', '설정은 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br><small>윈도우: 작업표시줄 오른쪽 알림 영역 · 맥: 화면 위 메뉴 막대</small><br>이 안내는 우클릭 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
   ];
   let i = 0, active = false;
   function showStep() {
     active = true;
-    const [face, html] = steps[i];
-    interrupt(); emote(face, 0, { poke: 3 });
+    const [face, html, extra = []] = steps[i];
+    interrupt(); emote(face, 0, { poke: 2 });
     say(`<small>${i + 1}/${steps.length}</small><br>${html}`, { ms: 0, choices: [
-      { label: i === steps.length - 1 ? '시작!' : '다음', onClick: () => { i++; i < steps.length ? showStep() : finish(); } },
-      ...(i > 0 ? [{ label: '이전', secondary: true, onClick: () => { i--; showStep(); } }] : []),
+      ...extra.map(([label, fn]) => ({ label, secondary: true, onClick: fn })),
+      { label: i === steps.length - 1 ? '시작!' : '다음', onClick: () => { siren.stop(); i++; i < steps.length ? showStep() : finish(); } },
+      ...(i > 0 ? [{ label: '이전', secondary: true, onClick: () => { siren.stop(); i--; showStep(); } }] : []),
       { label: '건너뛰기', secondary: true, onClick: finish },
     ]});
+    bubble.classList.add('wide');
+    if (extra.length) bubble.querySelector('.choices').classList.add('wrap');
   }
-  function finish() { active = false; interrupt(); isak.saveState({ tutorialDone: true }); emote('hello', 2500, { poke: 3 }); say('오늘도 파이팅! 🌾', { ms: 2500 }); }
+  function finish() { active = false; siren.stop(); interrupt(); isak.saveState({ tutorialDone: true }); emote('hello', 2500, { poke: 3 }); say('오늘도 파이팅! 🌾', { ms: 2500 }); }
   return { start() { interrupt(); i = 0; showStep(); }, get active() { return active; } };
 })();
 
@@ -658,8 +665,8 @@ function tick(now) {
 
   let hop = 0;
   if (s.mode === 'walk') hop = Math.abs(Math.sin(now / 170 * Math.PI)) * 10;
-  if (s.emoteName === 'cheer' || s.emoteName === 'best') hop = Math.abs(Math.sin(now / 200 * Math.PI)) * 26;
-  if (s.emoteName === 'alarm') hop = Math.abs(Math.sin(now / 130 * Math.PI)) * 8;
+  if (s.emoteName === 'cheer' || s.emoteName === 'best') hop = Math.abs(Math.sin(now / (tutorial.active ? 700 : 200) * Math.PI)) * (tutorial.active ? 6 : 26);
+  if (s.emoteName === 'alarm' && !tutorial.active) hop = Math.abs(Math.sin(now / 130 * Math.PI)) * 8;
   const breathe = (s.mode === 'idle' || s.mode === 'emote') ? Math.sin(now / 600) * 0.015 : 0;
   const shakeX = s.shake ? Math.sin(now / 30) * 4 : 0;
 
