@@ -49,10 +49,17 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
   background: #2a8c6e; color: #fff; font-family: inherit; font-size: 13px;
 }
 #bubble .choices button.secondary { background: #e4ece9; color: #345; }
-#bubble input[type=time] {
-  display: block; width: 100%; margin-top: 8px; padding: 6px 8px; font-size: 15px;
-  border: 1px solid #cfe9df; border-radius: 8px; font-family: inherit;
-}
+/* 시각 선택기 (마우스 전용) */
+.timepick { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; user-select: none; }
+.timepick .tp-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.timepick .tp-h, .timepick .tp-m { font-size: 26px; font-weight: 700; color: #1e3d33; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+.timepick .tp-sep { font-size: 26px; font-weight: 700; color: #1e3d33; padding-bottom: 2px; }
+.timepick button { border: 0; background: #effaf5; color: #1d6b53; border-radius: 6px; width: 44px; height: 22px; font-size: 11px; cursor: pointer; font-family: inherit; }
+.timepick button:hover { background: #d9f3e8; }
+.timepick button:active { background: #2a8c6e; color: #fff; }
+.timepick .tp-side { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-left: 8px; }
+.timepick .tp-side button { width: auto; padding: 0 10px; height: 24px; font-size: 12px; }
+.timepick .tp-rel { font-size: 12px; color: #667; white-space: nowrap; }
 
 /* 우클릭 메뉴 */
 #ctxMenu {

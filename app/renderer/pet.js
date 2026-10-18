@@ -230,22 +230,36 @@ function otChooseBase() {
   ]});
 }
 
+// 시각 고르기: 이삭이 창은 키보드를 받지 않으므로 마우스 버튼만으로 조절 (시 ±1, 분 ±5)
 function askTime(html, defMs, cb, onCancel = interrupt) {
+  const d = new Date(defMs); d.setSeconds(0, 0); d.setMinutes(Math.round(d.getMinutes() / 5) * 5);
+  const render = () => {
+    const h = String(d.getHours()).padStart(2, '0'), m = String(d.getMinutes()).padStart(2, '0');
+    const now = Date.now(), diff = Math.round((d.getTime() - now) / MIN);
+    const rel = diff === 0 ? '지금' : diff > 0 ? `${diff}분 뒤` : `${-diff}분 전`;
+    bubble.querySelector('.tp-h').textContent = h; bubble.querySelector('.tp-m').textContent = m;
+    bubble.querySelector('.tp-rel').textContent = rel;
+  };
   say(html, { ms: 0, choices: [
-    { label: '확인', onClick: () => {
-        const v = bubble.querySelector('input').value;
-        if (!v) return;
-        const [h, m] = v.split(':').map(Number);
-        let ms = todayAt(h, m);
-        if (ms - Date.now() > 12 * 60 * MIN) ms -= 24 * 60 * MIN;      // 미래로 너무 멀면 어제 시각
-        if (Date.now() - ms > 12 * 60 * MIN) ms += 24 * 60 * MIN;      // 과거로 너무 멀면 내일(다음 날 새벽) 시각
-        cb(ms);
-    } },
+    { label: '확인', onClick: () => cb(d.getTime()) },
     { label: '취소', secondary: true, onClick: onCancel },
   ]});
-  const input = document.createElement('input');
-  input.type = 'time'; input.value = fmt(defMs);
-  bubble.insertBefore(input, bubble.querySelector('.choices'));
+  const box = document.createElement('div');
+  box.className = 'timepick';
+  box.innerHTML = `
+    <div class="tp-col"><button data-d="60">▲</button><div class="tp-h">00</div><button data-d="-60">▼</button></div>
+    <div class="tp-sep">:</div>
+    <div class="tp-col"><button data-d="5">▲</button><div class="tp-m">00</div><button data-d="-5">▼</button></div>
+    <div class="tp-side"><div class="tp-rel"></div><button data-zero>정시로</button></div>`;
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    e.stopPropagation();
+    if (b.dataset.zero !== undefined) d.setMinutes(0);
+    else d.setTime(d.getTime() + (+b.dataset.d) * MIN);
+    render();
+  });
+  bubble.insertBefore(box, bubble.querySelector('.choices'));
+  render();
 }
 
 const nextInfo = () => `다음 마감 <b>${fmt(deadline())}</b> · ${fmt(deadline() - 5 * MIN)}에 알려드릴게요 ⏰`;
