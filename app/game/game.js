@@ -2,7 +2,8 @@
 'use strict';
 
 // Electron 밖(브라우저 미리보기)에서 열면 가짜 브리지로 동작
-const game = window.game || {
+// (contextBridge가 만든 window.game은 전역 선언으로 취급되므로 다른 이름으로 받음)
+const bridge = window.game || {
   getCoins: async () => ({ coins: 3, cap: 3, progressMs: 0, intervalMs: 7200000 }),
   spendCoin: async () => ({ ok: true, coins: 2, cap: 3 }),
   getBest: async () => 0, saveBest() {}, result() {}, close() { location.reload(); }, onAlarm() {},
@@ -96,11 +97,11 @@ const $ = (id) => document.getElementById(id);
 function show(id) { document.querySelectorAll('.screen').forEach(e => e.classList.toggle('on', e.id === id)); }
 
 async function refreshIntro() {
-  const c = await game.getCoins(); S.coins = c.coins; S.cap = c.cap;
-  S.best = await game.getBest();
+  const c = await bridge.getCoins(); S.coins = c.coins; S.cap = c.cap;
+  S.best = await bridge.getBest();
   $('introCoins').textContent = `🪙 코인 ${S.coins}/${S.cap} · 1판 = 1코인`;
   $('introBest').textContent = S.best ? `BEST ${S.best.toLocaleString()}` : 'BEST —';
-  const hist = await game.getHistory();
+  const hist = await bridge.getHistory();
   const top = [...hist].sort((a, b) => b.score - a.score).slice(0, 3);
   $('introRanks').textContent = top.length ? 'TOP 3 · ' + top.map(h => `${h.score.toLocaleString()}${h.cleared ? '★' : ''}`).join(' · ') : '';
   $('pressStart').textContent = S.coins > 0 ? 'PRESS SPACE' : '코인이 없어요';
@@ -108,7 +109,7 @@ async function refreshIntro() {
 }
 
 async function startGame() {
-  const r = await game.spendCoin();
+  const r = await bridge.spendCoin();
   if (!r.ok) { refreshIntro(); return; }
   S.coins = r.coins;
   Object.assign(S, { t: 0, stage: 1, score: 0, hearts: MAX_HEARTS, hurtUntil: 0, objs: [], particles: [], toasts: [],
@@ -122,19 +123,19 @@ async function startGame() {
 function endGame(cleared) {
   S.screen = 'result';
   const isBest = S.score > S.best;
-  if (isBest) { S.best = S.score; game.saveBest(S.score); }
+  if (isBest) { S.best = S.score; bridge.saveBest(S.score); }
   $('resultTitle').textContent = cleared ? 'CLEAR!' : 'GAME OVER';
   $('resultScore').textContent = S.score.toLocaleString();
   $('resultBest').textContent = isBest ? '🏆 최고 기록 갱신!' : `BEST ${S.best.toLocaleString()}`;
   $('resultStats').textContent = `스테이지 ${S.stage} · 과일 ${S.caught}개 · ${Math.floor(S.t)}초`;
-  game.saveScore({ score: S.score, stage: S.stage, cleared, caught: S.caught, date: new Date().toISOString() });
+  bridge.saveScore({ score: S.score, stage: S.stage, cleared, caught: S.caught, date: new Date().toISOString() });
   bgm.stop();
   $('shareBtn').textContent = '📸 점수 카드 복사·저장';
-  game.getCoins().then(c => { S.coins = c.coins; S.cap = c.cap;
+  bridge.getCoins().then(c => { S.coins = c.coins; S.cap = c.cap;
     $('retryBtn').textContent = `다시 하기 (🪙 ${S.coins}/${S.cap})`; $('retryBtn').disabled = S.coins <= 0; });
   show('result');
   (cleared ? sfx.win : sfx.over)();
-  game.result({ score: S.score, best: isBest, cleared });
+  bridge.result({ score: S.score, best: isBest, cleared });
 }
 
 function pause(reason) {
@@ -361,7 +362,7 @@ async function shareCard() {
   t(`${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, 36, 226, 16, '#cfe9df', 'Galmuri11');
   t(S.score >= S.best ? '🏆 개인 최고 기록' : `BEST ${S.best.toLocaleString()}`, 36, 262, 16, '#ffd93c', 'Galmuri11');
   t('이삭이 데스크톱 펫 · 농촌진흥청', 36, ch - 44, 13, '#cfe9df', 'Galmuri11');
-  const r = await game.shareCard(c.toDataURL('image/png'));
+  const r = await bridge.shareCard(c.toDataURL('image/png'));
   $('shareBtn').textContent = r.copied ? '✅ 복사했어요 · 메신저에 붙여넣기' : '✅ 저장했어요';
 }
 $('shareBtn').onclick = shareCard;
@@ -381,7 +382,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { if (S.screen === 'intro') startGame(); else if (S.screen === 'result' && !$('retryBtn').disabled) startGame(); else if (S.screen === 'play' && S.paused && !S.pauseReason) resume(); }
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (S.screen === 'play') (S.paused ? resume : pause)();
-    else if (S.screen === 'result' && e.code === 'Escape') game.close();
+    else if (S.screen === 'result' && e.code === 'Escape') bridge.close();
   }
   if (e.code === 'KeyM') { const m = sfx.toggle(); $('mute').textContent = m ? '🔇' : '🔊'; }
   if (e.code === 'KeyB') $('bgm').classList.toggle('off', !bgm.toggle());
@@ -390,11 +391,11 @@ addEventListener('keyup', (e) => { S.keys[e.code] = false; });
 addEventListener('blur', () => { S.keys = {}; if (S.screen === 'play' && !S.paused) pause(); });
 $('resumeBtn').onclick = resume;
 $('retryBtn').onclick = startGame;
-$('closeBtn').onclick = () => game.close();
-$('x').onclick = () => game.close();
+$('closeBtn').onclick = () => bridge.close();
+$('x').onclick = () => bridge.close();
 $('mute').onclick = () => { $('mute').textContent = sfx.toggle() ? '🔇' : '🔊'; };
 $('bgm').onclick = () => $('bgm').classList.toggle('off', !bgm.toggle());
-game.onAlarm((info) => { if (S.screen === 'play') pause(info.text); });
+bridge.onAlarm((info) => { if (S.screen === 'play') pause(info.text); });
 
 // ---------- 시작 ----------
 show('intro'); refreshIntro();
