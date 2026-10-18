@@ -228,6 +228,7 @@ function trayIcon() {
 }
 function otLabel() {
   const ot = state.ot;
+  if (ot.status === 'active' && !ot.base) return '초과근무 대기 · 근무확인 누르면 시작';
   if (ot.status === 'active' && ot.base) {
     const dl = new Date(ot.base + 60 * 60 * 1000);
     return `초과근무 중 · 다음 마감 ${String(dl.getHours()).padStart(2, '0')}:${String(dl.getMinutes()).padStart(2, '0')}`;

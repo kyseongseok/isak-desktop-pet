@@ -142,12 +142,12 @@ function startWalk() {
 // 일찍 눌러도 누른 시각이 새 기준, 제외시간 후 복귀하면 복귀 시 근무확인 누른 시각이 새 기준
 // '근무일'은 새벽 5시에 바뀜: 자정 넘겨 일해도 같은 날의 초과근무로 이어짐
 const workDate = (t = Date.now()) => new Date(t - 5 * 60 * MIN).toDateString();
-const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: workDate() };
+const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: workDate(), planAt: 0, planReminded: false };
 const STALE_MS = 90 * MIN;            // 마감 후 이만큼 응답이 없으면 퇴근한 것으로 보고 알람을 끔
 const deadline = () => OT.base + 60 * MIN;
-function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date, snoozeUntil: OT.snoozeUntil } }); }
+function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date, snoozeUntil: OT.snoozeUntil, pendingPress: OT.pendingPress, planAt: OT.planAt } }); }
 function otReset() {
-  OT.status = 'none'; OT.base = null; OT.stage = 0; OT.pendingPress = false; OT.snoozeUntil = 0;
+  OT.status = 'none'; OT.base = null; OT.stage = 0; OT.pendingPress = false; OT.snoozeUntil = 0; OT.planAt = 0; OT.planReminded = false;
   OT.date = workDate(); otSave();
 }
 
@@ -161,6 +161,14 @@ function otTick() {
     say('한참 응답이 없어서 초과근무 알람을 껐어요 🙂<br><small>다시 하려면 우클릭 → 초과근무 시작</small>', { ms: 8000 });
   }
   if (OT.status === 'none' && t >= OT.snoozeUntil && (!env.isWorkday || minuteOfDay(t) >= ASK_AT)) otAsk();
+  if (OT.status === 'active' && OT.pendingPress && OT.planAt && !OT.planReminded && t >= OT.planAt) {
+    OT.planReminded = true; interrupt(); emote('alarm', 0, { poke: 4 }); siren.play(1);
+    say(`${fmt(OT.planAt)}이에요! 근무확인 누르셨나요? 🔔`, { ms: 0, alarm: true, choices: [
+      { label: '눌렀어요', onClick: otPressed },
+      { label: '10분 뒤', secondary: true, onClick: () => { OT.planAt = Date.now() + 10 * MIN; OT.planReminded = false; otSave(); interrupt(); } },
+    ]});
+    isak.notify('이삭이', '근무확인 누르셨나요?');
+  }
   if (OT.status !== 'active' || OT.pendingPress) return;
   const remain = deadline() - t;
   const stage = remain <= 0 ? 4 : remain <= MIN ? 3 : remain <= 3 * MIN ? 2 : remain <= 5 * MIN ? 1 : 0;
@@ -172,7 +180,7 @@ function otAsk(greeting = '') {
   interrupt();
   emote('think', 0, { poke: 3 });
   say(`${greeting}오늘 초과 근무 하시나요?`, { ms: 0, choices: [
-    { label: '예', onClick: otChooseBase },
+    { label: '예', onClick: otAskPressed },
     { label: '아니오', secondary: true, onClick: () => {
         OT.status = 'declined'; otSave(); interrupt();
         emote('hello', 2500); say('오늘도 수고하셨어요! 👋'); } },
@@ -182,6 +190,30 @@ function otAsk(greeting = '') {
   ]});
 }
 
+// 예 → 근무확인을 이미 눌렀는지. 아직이면 누를 때까지 알람 없이 대기 (누른 시각이 첫 기준)
+function otAskPressed() {
+  say('근무확인은 누르셨어요?', { ms: 0, choices: [
+    { label: '이미 눌렀어요', onClick: otChooseBase },
+    { label: '아직이에요', onClick: otAskPlan },
+    { label: '← 돌아가기', secondary: true, onClick: () => otAsk() },
+  ]});
+}
+function otAskPlan() {
+  const h = new Date().getHours(), opts = [];
+  for (let i = 1; i <= 2; i++) { const d = new Date(); d.setHours(h + i, 0, 0, 0); opts.push(d.getTime()); }
+  say('몇 시쯤 누르실 거예요?<br><small>그때 한 번 여쭤볼게요</small>', { ms: 0, choices: [
+    ...opts.map(ms => ({ label: fmt(ms), onClick: () => otWait(ms) })),
+    { label: '직접 입력', secondary: true, onClick: () => askTime('누를 예정 시각', opts[0], otWait, otAskPlan) },
+    { label: '알림 없이', secondary: true, onClick: () => otWait(0) },
+  ]});
+  bubble.querySelector('.choices').classList.add('wrap');
+}
+function otWait(planAt) {
+  OT.status = 'active'; OT.base = null; OT.stage = 0; OT.pendingPress = true; OT.planAt = planAt; OT.planReminded = false; otSave();
+  interrupt();
+  emote('best', 3000, { poke: 3 });
+  say(`알겠어요! 근무확인을 <b>누르면 저를 클릭</b>해 주세요<br><small>그 시각부터 1시간씩 셀게요${planAt ? ` · ${fmt(planAt)}에 한 번 여쭤볼게요` : ''}</small>`, { ms: 6000 });
+}
 // 기본 기준 시각: 평일 18시 전이면 18:00, 그 외엔 가장 최근 정시 (정시마다 눌렀다고 보고)
 function defaultBase() {
   const now = new Date();
@@ -252,13 +284,15 @@ function otPressed() {
   if (OT.status === 'excluded') return otResume();
   if (OT.status !== 'active') { say('지금은 초과근무 알람이 꺼져 있어요', { ms: 2500 }); return; }
   const late = OT.stage === 4;
-  OT.base = Date.now(); OT.stage = 0; OT.pendingPress = false; otSave();
+  const first = OT.pendingPress && !OT.base;
+  OT.base = Date.now(); OT.stage = 0; OT.pendingPress = false; OT.planAt = 0; otSave();
+  if (first) { emote('best', 2500, { poke: 5 }); say(`초과근무 시작! (기준 ${fmt(OT.base)})<br>${nextInfo()}`, { ms: 5000 }); return; }
   if (late) { emote('hello', 4500, { poke: 4 }); say(`괜찮아요, 그럴 수 있죠! 🙂<br>${nextInfo()}`, { ms: 5000 }); }
   else { emote('best', 2500, { poke: 5 }); say(`근무확인 완료! 최고예요 👍<br>${nextInfo()}`, { ms: 5000 }); isak.coinBonus(); }
 }
 
 function otFixTime() {
-  if (OT.status !== 'active') return;
+  if (OT.status !== 'active' || !OT.base) { say('아직 기준 시각이 없어요. 근무확인을 누르면 저를 클릭해 주세요', { ms: 3000 }); return; }
   askTime('실제로 근무확인을 누른 시각을 알려 주세요', OT.base, (ms) => {
     OT.base = ms; OT.stage = 0; OT.pendingPress = false; otSave();
     interrupt(); say(`기준 시각을 ${fmt(ms)}로 고쳤어요<br>${nextInfo()}`, { ms: 4500 });
@@ -420,7 +454,7 @@ pet.addEventListener('contextmenu', (e) => {
   const st = document.getElementById('ctxStatus');
   st.className = (OT.status === 'active' || OT.status === 'excluded') ? 'on' : '';
   st.innerHTML = {
-    active: `🟢 <b>초과근무 중</b> · 기준 ${fmt(OT.base)}<br>다음 마감 <b>${fmt(deadline())}</b>${OT.pendingPress ? ' (근무확인 대기)' : ''}`,
+    active: OT.base ? `🟢 <b>초과근무 중</b> · 기준 ${fmt(OT.base)}<br>다음 마감 <b>${fmt(deadline())}</b>${OT.pendingPress ? ' (근무확인 대기)' : ''}` : `🟡 <b>초과근무 대기</b> · 근무확인 누르면 시작${OT.planAt ? `<br>${fmt(OT.planAt)}에 여쭤볼게요` : ''}`,
     excluded: `⏸ <b>제외시간</b> · 알람 쉬는 중`,
     none: env.isWorkday ? '평일 근무 중 · 17:55에 초과근무 여부를 여쭤볼게요' : '휴일이에요 · 초과근무 알람 꺼짐',
     asked: '초과근무 여부 답변 기다리는 중',
@@ -619,16 +653,17 @@ let resumedSession = false;
   applyEnv({ ...e, xRatio: st.xRatio });
   if (st.ot && st.ot.status) {              // 앱을 껐다 켜도 초과근무 상태 이어가기
     OT.status = st.ot.status; OT.base = st.ot.base; OT.date = st.ot.date || OT.date; OT.snoozeUntil = st.ot.snoozeUntil || 0;
+    OT.pendingPress = !!st.ot.pendingPress; OT.planAt = st.ot.planAt || 0;
     if (OT.status === 'asked') OT.status = 'none';
     if (OT.date !== workDate()) otReset();                                                 // 다른 근무일의 기록은 버림
-    else if (OT.status === 'active' && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 마감이 한참 지난 기록은 이어가지 않음
+    else if (OT.status === 'active' && OT.base && !OT.pendingPress && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 마감이 한참 지난 기록은 이어가지 않음
     else if (OT.status === 'active' || OT.status === 'excluded') resumedSession = true;
   }
   requestAnimationFrame(tick);
   setTimeout(() => {
     if (bubbleBusy()) return;
     if (resumedSession && OT.status === 'active') {       // 재부팅·재시작 뒤 이어가기
-      emote('hello', 3000, { poke: 3 }); say(`다시 켜졌네요! 초과근무 이어서 할게요 🙂<br>${nextInfo()}`, { ms: 6000 });
+      emote('hello', 3000, { poke: 3 }); say(OT.base ? `다시 켜졌네요! 초과근무 이어서 할게요 🙂<br>${nextInfo()}` : '다시 켜졌네요! 근무확인을 누르면 저를 클릭해 주세요 🙂', { ms: 6000 });
     } else if (resumedSession) {
       emote('sleep', 0); say('제외시간 중이었죠? 돌아오셨으면 저를 클릭해 주세요', { ms: 0, choices: [{ label: '복귀했어요', onClick: otResume }] });
     } else actions.hello();
