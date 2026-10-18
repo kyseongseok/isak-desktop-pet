@@ -381,7 +381,7 @@ const tutorial = (() => {
       [['🔕', () => siren.preview('quiet')], ['🪩 클럽', () => siren.preview('club')], ['🚑 앰뷸런스', () => siren.preview('ambulance')], ['🚓 경찰차', () => siren.preview('police')]]],
     ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>개인 용무로 자리를 비울 땐 우클릭 → <b>제외시간 시작</b>, 돌아오면 저를 클릭해 주세요'],
     ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리 설정 · 크기 조정 · 미니게임 · 숨기기'],
-    ['best', '<b>코인</b>은 실제로 일한 시간 2시간마다 1개 🪙 (자리 비운 시간은 빼고요)<br>근무확인을 제때 누르면 +1, <b>최대 3개</b>까지만 모여요'],
+    ['best', '<b>코인</b>은 매일 아침 <b>3개</b>로 채워져요 🪙<br>초과근무 중 근무확인을 제때 누르면 <b>1시간마다 +1</b>, 최대 5개까지 모여요<br><small>첫날엔 체험용으로 5개 드렸어요!</small>'],
     ['cheer', '코인 1개로 <b>미니게임</b> 한 판!<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
     ['hello', '설정은 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br><small>윈도우: 작업표시줄 오른쪽 알림 영역 · 맥: 화면 위 메뉴 막대</small><br>이 안내는 우클릭 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
   ];
@@ -560,8 +560,7 @@ async function openGame(kind = 'orchard') {
   interrupt();
   const c = await isak.getCoins();
   if (c.coins <= 0) {
-    const left = Math.ceil((c.intervalMs - c.progressMs) / MIN);
-    emote('think', 3500); say(`코인이 없어요 🪙<br><small>다음 코인까지 약 ${left}분 · 근무확인을 제때 누르면 +1</small>`, { ms: 4500 });
+    emote('think', 3500); say(`코인이 없어요 🪙<br><small>내일 아침에 ${c.daily}개로 채워져요 · 초과근무 중 근무확인을 제때 누르면 +1</small>`, { ms: 4500 });
     return;
   }
   isak.openGame(kind);
@@ -746,7 +745,7 @@ isak.on('user-return', onUserReturn);
 isak.on('coin', ({ coins, cap, reason }) => {
   if (bubbleBusy()) return;
   interrupt(); emote('cheer', 2600, { poke: 6 });
-  say(reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
+  say(reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : reason === 'daily' ? `새 근무일! 코인을 채워 뒀어요 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
 });
 isak.on('game-result', ({ kind, score, best, cleared }) => {
   interrupt();

@@ -4,8 +4,8 @@
 // Electron 밖(브라우저 미리보기)에서 열면 가짜 브리지로 동작
 const bridge = window.game || {
   kind: 'typing',
-  getCoins: async () => ({ coins: 3, cap: 3, progressMs: 0, intervalMs: 7200000 }),
-  spendCoin: async () => ({ ok: true, coins: 2, cap: 3 }),
+  getCoins: async () => ({ coins: 3, cap: 5, daily: 3 }),
+  spendCoin: async () => ({ ok: true, coins: 2, cap: 5 }),
   getBest: async () => 0, saveBest() {}, result() {}, close() { location.reload(); }, onAlarm() {},
   saveScore() {}, getHistory: async () => [],
   async shareCard(dataUrl) { const a = document.createElement('a'); a.href = dataUrl; a.download = 'score.png'; a.click(); return { copied: false, saved: true }; },

@@ -6,9 +6,8 @@ const fs = require('fs');
 const { isHoliday } = require('./holidays');
 
 const IDLE_AWAY_SEC = 10 * 60;      // 이만큼 입력이 없으면 자리 비움
-const COIN_INTERVAL_MS = 2 * 60 * 60 * 1000;
-const COIN_CAP = 3;               // 보유 상한
-const COIN_IDLE_SEC = 10 * 60;    // 이만큼 입력이 없으면 코인이 쌓이지 않음
+const COIN_CAP = 5;               // 보유 상한 (낮 3개 + 초과근무 보너스 이월)
+const COIN_DAILY = 3;             // 매 근무일 시작 때 이만큼은 채워 줌
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -22,8 +21,7 @@ const defaultState = {
   displayId: null,
   autoplay: true,
   autostart: true,
-  coins: 3,                         // 처음 설치 시 체험용 3개
-  coinProgressMs: 0,
+  coins: 5,                         // 처음 설치 시 체험용 5개
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
   sound: { theme: 'quiet', volume: 40 },   // 알람 소리: 조용히 / 클럽 / 앰뷸런스 / 경찰차
 };
@@ -32,6 +30,7 @@ function loadState() {
   try { state = { ...defaultState, ...JSON.parse(fs.readFileSync(statePath(), 'utf-8')) }; } catch (e) {}
   const today = workDate();
   if (state.ot.date !== today) state.ot = { status: 'none', base: null, date: today };
+  if (state.coinDate !== today) { state.coins = Math.max(COIN_DAILY, state.coins); state.coinDate = today; }   // 새 근무일: 3개로 채움
   state.coins = Math.min(COIN_CAP, state.coins);
   if (process.env.ISAK_COINS) { state.coins = Math.min(COIN_CAP, +process.env.ISAK_COINS); saveState(); }   // 개발용: 코인 채우기
 }
@@ -191,11 +190,14 @@ powerMonitor.on('unlock-screen', () => send('user-return', { awaySec: IDLE_AWAY_
 let lastDate = workDate();
 setInterval(() => {
   const d = workDate();
-  if (d !== lastDate) { lastDate = d; sendEnv(); updateTray(); }
+  if (d !== lastDate) {
+    lastDate = d;
+    if (state.coinDate !== d) { state.coins = Math.max(COIN_DAILY, state.coins); state.coinDate = d; saveState(); send('coin', { coins: state.coins, cap: COIN_CAP, reason: 'daily' }); }
+    sendEnv(); updateTray();
+  }
 }, 60 * 1000);
 
-// ---------- 코인: 실제로 앉아서 일한 시간 2시간마다 1개, 최대 3개 ----------
-// 자리 비움(10분 이상 입력 없음) 중에는 쌓이지 않음. 제때 근무확인을 누르면 보너스 +1
+// ---------- 코인: 매 근무일 3개로 채워 주고, 초과근무 중 제때 근무확인마다 +1 (최대 5) ----------
 function addCoin(reason) {
   if (state.coins >= COIN_CAP) return false;
   state.coins += 1; saveState();
@@ -209,17 +211,7 @@ ipcMain.handle('spend-coin', () => {
   state.coins -= 1; saveState(); updateTray();
   return { ok: true, coins: state.coins, cap: COIN_CAP };
 });
-ipcMain.handle('get-coins', () => ({ coins: state.coins, cap: COIN_CAP, progressMs: state.coinProgressMs, intervalMs: COIN_INTERVAL_MS }));
-setInterval(() => {
-  if (state.coins >= COIN_CAP) { state.coinProgressMs = 0; return; }
-  if (powerMonitor.getSystemIdleTime() >= COIN_IDLE_SEC) return;      // 자리 비움: 적립 멈춤
-  state.coinProgressMs += 60 * 1000;
-  if (state.coinProgressMs >= COIN_INTERVAL_MS) {
-    state.coinProgressMs -= COIN_INTERVAL_MS;
-    addCoin('time');
-  }
-  saveState();
-}, 60 * 1000);
+ipcMain.handle('get-coins', () => ({ coins: state.coins, cap: COIN_CAP, daily: COIN_DAILY }));
 
 // ---------- 트레이 메뉴 ----------
 function trayIcon() {
