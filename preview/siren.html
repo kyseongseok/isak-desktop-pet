@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사이렌 알람 데모</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: #f4f6f8; color: #223;
+  }
+  /* 가짜 업무 화면 */
+  .doc {
+    position: absolute; inset: 60px 24px 24px 24px; background: #fff; border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08); padding: 32px 40px; line-height: 1.8; color: #333;
+    overflow: hidden;
+  }
+  .doc h2 { margin: 0 0 12px; font-size: 18px; }
+  .doc p { margin: 0 0 10px; color: #555; }
+  .bar { position: absolute; left: 0; right: 0; top: 0; height: 40px; background: #2a3a4a; color: #fff;
+         display: flex; align-items: center; padding: 0 16px; font-size: 13px; gap: 16px; }
+
+  /* 전체 화면 색 레이어: 클릭이 통과함 */
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: 0; }
+  #flash.ambulance { animation: amb .6s steps(1) infinite; }
+  @keyframes amb { 0% { background: #ff2a2a; opacity: .32; } 50% { background: #ff2a2a; opacity: 0; } }
+  #flash.police { animation: pol .9s steps(1) infinite; }
+  @keyframes pol { 0% { background: #2a5bff; opacity: .34; } 33% { background: #ff2a2a; opacity: .34; } 66% { opacity: 0; } }
+  #flash.club { animation: club 1.875s steps(1) infinite; }   /* 128 BPM 4박 */
+  @keyframes club {
+    0% { background: #b23cff; opacity: .3; } 12% { opacity: 0; }
+    25% { background: #ff3c9e; opacity: .3; } 37% { opacity: 0; }
+    50% { background: #28e0d8; opacity: .3; } 62% { opacity: 0; }
+    75% { background: #ffd93c; opacity: .3; } 87% { opacity: 0; }
+  }
+  #flash.soft { animation-duration: 1.2s; filter: opacity(.45); }   /* 3분 전: 느리고 옅게 */
+
+  /* 패널 */
+  .panel {
+    position: absolute; right: 24px; top: 60px; width: 300px; z-index: 200;
+    background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 14px 16px; font-size: 13px;
+  }
+  .panel h1 { font-size: 15px; margin: 0 0 8px; }
+  .panel .group { margin-top: 12px; font-weight: 600; font-size: 12px; color: #2a8c6e; }
+  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .themes button, .stages button, .stop {
+    border: 1px solid #cfe9df; background: #effaf5; color: #1d6b53; border-radius: 8px;
+    padding: 8px 6px; cursor: pointer; font-family: inherit; font-size: 13px;
+  }
+  .themes button.on { background: #2a8c6e; color: #fff; border-color: #2a8c6e; }
+  .stages { display: flex; gap: 6px; margin-top: 6px; }
+  .stages button { flex: 1; }
+  .stop { width: 100%; margin-top: 12px; background: #fff3f0; color: #b3261e; border-color: #f5c6c0; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .row input[type=range] { flex: 1; }
+  .note { font-size: 11px; color: #888; margin-top: 10px; line-height: 1.5; }
+  #status { margin-top: 8px; font-size: 12px; color: #555; min-height: 18px; }
+
+  /* 이삭이 말풍선 흉내 */
+  .pet { position: absolute; left: 120px; bottom: 40px; width: 180px; z-index: 150; }
+  .pet img { width: 100%; display: block; }
+  .bubble {
+    position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -8px); white-space: nowrap;
+    background: #fff3f0; color: #b3261e; font-weight: 700; padding: 10px 14px; border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 14px; display: none;
+  }
+  .bubble::after { content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+                   border: 8px solid transparent; border-top-color: #fff3f0; border-bottom: 0; }
+  .pet.alarm img { animation: shake .12s infinite alternate; }
+  @keyframes shake { from { transform: translateX(-4px); } to { transform: translateX(4px); } }
+</style>
+</head>
+<body>
+<div class="bar">📄 보고서_최종_진짜최종.hwp &nbsp;·&nbsp; 편집 중</div>
+<div class="doc">
+  <h2>2026년도 시험연구 추진 계획</h2>
+  <p>본 계획은 기후변화 대응 품종 개발을 위한 연차별 추진 전략을 담고 있다. 1차년도에는 유전자원 수집 및 특성 평가를 수행하고, 2차년도에는 선발 계통의 지역 적응성 검정을 실시한다.</p>
+  <p>세부 추진 내용은 다음과 같다. 첫째, 내재해성 유전자원 200점을 확보한다. 둘째, 표현형 평가 체계를 구축한다. 셋째, 선발 계통의 농가 실증을 추진한다.</p>
+  <p>사이렌이 울리는 동안에도 이 문서는 그대로 편집할 수 있어요. 색 레이어는 클릭이 통과하거든요.</p>
+</div>
+
+<div class="panel">
+  <h1>🚨 근무확인 사이렌 데모</h1>
+  <div class="group">테마</div>
+  <div class="themes">
+    <button data-theme="quiet">🔕 조용히</button>
+    <button data-theme="club">🪩 클럽</button>
+    <button data-theme="ambulance">🚑 앰뷸런스</button>
+    <button data-theme="police">🚓 경찰차</button>
+  </div>
+  <div class="group">단계 (눌러서 재생)</div>
+  <div class="stages">
+    <button data-stage="1">5분 전</button>
+    <button data-stage="2">3분 전</button>
+    <button data-stage="3">1분 전</button>
+  </div>
+  <button class="stop" id="stop">⏹ 멈추기 (근무확인 눌렀어요)</button>
+  <div class="row"><span>🔊</span><input type="range" id="vol" min="0" max="100" value="40"><span id="volLabel">40%</span></div>
+  <div id="status"></div>
+  <div class="note">
+    5분 전: 짧은 알림음만 · 3분 전: 테마 소리 + 옅은 깜빡임 · 1분 전: 풀 효과<br>
+    깜빡임은 초당 3회 이하, 투명도 30% 안팎으로 제한했어요.
+  </div>
+</div>
+
+<div class="pet" id="pet">
+  <div class="bubble" id="bubble"></div>
+  <img id="petImg" src="img/idle.png" alt="이삭이">
+</div>
+<div id="flash"></div>
+
+<script>
+// ---------- 소리: 전부 Web Audio로 합성 (파일 없음) ----------
+let ctx = null, master = null, running = [];
+function audio() {
+  if (!ctx) { ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.connect(ctx.destination); }
+  if (ctx.state === 'suspended') ctx.resume();
+  master.gain.value = +document.getElementById('vol').value / 100 * 0.5;
+  return ctx;
+}
+function stopAll() {
+  running.forEach(fn => { try { fn(); } catch (e) {} });
+  running = [];
+}
+
+// 짧은 알림음 "딩동" (5분 전)
+function chime(times = 1) {
+  const c = audio(); const t0 = c.currentTime;
+  for (let i = 0; i < times; i++) {
+    [880, 1174.7].forEach((f, j) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = t0 + i * 0.5 + j * 0.18;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.45);
+    });
+  }
+}
+
+// 🚑 앰뷸런스: 두 음이 번갈아 (삐-뽀-)
+function ambulance(soft) {
+  const c = audio();
+  const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+  o.type = 'triangle'; lp.type = 'lowpass'; lp.frequency.value = 2200;
+  g.gain.value = soft ? 0.25 : 0.5;
+  o.connect(lp); lp.connect(g); g.connect(master);
+  const period = soft ? 1.2 : 0.6;
+  let t = c.currentTime;
+  const timer = setInterval(() => {
+    while (t < c.currentTime + 1) { o.frequency.setValueAtTime(960, t); o.frequency.setValueAtTime(770, t + period / 2); t += period; }
+  }, 300);
+  o.start();
+  running.push(() => { clearInterval(timer); g.gain.setTargetAtTime(0, c.currentTime, 0.05); o.stop(c.currentTime + 0.3); });
+}
+
+// 🚓 경찰차: 위잉~ 위잉~ 올라갔다 내려오는 사이렌
+function police(soft) {
+  const c = audio();
+  const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+  o.type = 'sawtooth'; lp.type = 'lowpass'; lp.frequency.value = 1800;
+  g.gain.value = soft ? 0.18 : 0.35;
+  o.connect(lp); lp.connect(g); g.connect(master);
+  const period = soft ? 2.4 : 1.4;
+  let t = c.currentTime;
+  const timer = setInterval(() => {
+    while (t < c.currentTime + 1) {
+      o.frequency.setValueAtTime(600, t);
+      o.frequency.exponentialRampToValueAtTime(1300, t + period / 2);
+      o.frequency.exponentialRampToValueAtTime(600, t + period);
+      t += period;
+    }
+  }, 300);
+  o.start();
+  running.push(() => { clearInterval(timer); g.gain.setTargetAtTime(0, c.currentTime, 0.05); o.stop(c.currentTime + 0.3); });
+}
+
+// 🪩 클럽: 128 BPM 킥 + 하이햇 + 신스 스탭
+function club(soft) {
+  const c = audio();
+  const bpm = 128, beat = 60 / bpm;
+  const noiseBuf = c.createBuffer(1, c.sampleRate * 0.1, c.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const bass = [55, 55, 65.4, 49];                       // A A C G
+  let bar = 0, t = c.currentTime + 0.05;
+  const vol = soft ? 0.5 : 1;
+  function kick(at) {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(150, at); o.frequency.exponentialRampToValueAtTime(40, at + 0.12);
+    g.gain.setValueAtTime(0.9 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.25);
+    o.connect(g); g.connect(master); o.start(at); o.stop(at + 0.3);
+  }
+  function hat(at) {
+    const s = c.createBufferSource(), g = c.createGain(), hp = c.createBiquadFilter();
+    s.buffer = noiseBuf; hp.type = 'highpass'; hp.frequency.value = 7000;
+    g.gain.setValueAtTime(0.25 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
+    s.connect(hp); hp.connect(g); g.connect(master); s.start(at); s.stop(at + 0.06);
+  }
+  function stab(at, f) {
+    [f * 4, f * 5, f * 6].forEach(freq => {
+      const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.value = freq; lp.type = 'lowpass'; lp.frequency.setValueAtTime(2500, at); lp.frequency.exponentialRampToValueAtTime(400, at + 0.2);
+      g.gain.setValueAtTime(0.08 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.22);
+      o.connect(lp); lp.connect(g); g.connect(master); o.start(at); o.stop(at + 0.25);
+    });
+  }
+  const timer = setInterval(() => {
+    while (t < c.currentTime + 0.6) {
+      const f = bass[bar % 4];
+      for (let b = 0; b < 4; b++) {
+        kick(t + b * beat); hat(t + b * beat + beat / 2);
+        if (b === 1 || b === 3) stab(t + b * beat + beat / 2, f);
+      }
+      t += beat * 4; bar++;
+    }
+  }, 200);
+  running.push(() => clearInterval(timer));
+}
+
+// ---------- 단계별 연출 ----------
+const flash = document.getElementById('flash');
+const pet = document.getElementById('pet'), bubble = document.getElementById('bubble'), petImg = document.getElementById('petImg');
+const status = document.getElementById('status');
+let theme = 'quiet';
+const THEME_NAME = { quiet: '조용히', club: '클럽', ambulance: '앰뷸런스', police: '경찰차' };
+const SOUND = { club, ambulance, police };
+
+function play(stage) {
+  stopAll();
+  flash.className = '';
+  pet.classList.add('alarm');
+  petImg.src = 'img/alarm.png';
+  bubble.style.display = 'block';
+  bubble.textContent = { 1: '근무확인 누를 시간이에요! 🔔', 2: '3분 남았어요! ⏳', 3: '1분 남았어요!! 🚨' }[stage];
+
+  if (stage === 1 || theme === 'quiet') {
+    chime(stage === 3 ? 3 : stage === 2 ? 2 : 1);         // 조용히: 단계마다 딩동 횟수만 늘어남
+    status.textContent = `${THEME_NAME[theme]} · ${stage}단계: 알림음만`;
+    return;
+  }
+  const soft = stage === 2;
+  SOUND[theme](soft);
+  flash.className = theme + (soft ? ' soft' : '');
+  status.textContent = `${THEME_NAME[theme]} · ${soft ? '3분 전: 옅게' : '1분 전: 풀 효과'}`;
+}
+function stop() {
+  stopAll(); flash.className = ''; pet.classList.remove('alarm'); petImg.src = 'img/best.png';
+  bubble.style.display = 'block'; bubble.textContent = '근무확인 완료! 최고예요 👍';
+  setTimeout(() => { bubble.style.display = 'none'; petImg.src = 'img/idle.png'; }, 2500);
+  status.textContent = '';
+}
+
+document.querySelectorAll('[data-theme]').forEach(b => b.addEventListener('click', () => {
+  theme = b.dataset.theme;
+  document.querySelectorAll('[data-theme]').forEach(x => x.classList.toggle('on', x === b));
+  stopAll(); flash.className = '';
+  status.textContent = `테마: ${THEME_NAME[theme]} — 단계를 눌러 보세요`;
+}));
+document.querySelector('[data-theme="quiet"]').classList.add('on');
+document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => play(+b.dataset.stage)));
+document.getElementById('stop').addEventListener('click', stop);
+const vol = document.getElementById('vol');
+vol.addEventListener('input', () => { document.getElementById('volLabel').textContent = vol.value + '%'; if (master) master.gain.value = vol.value / 100 * 0.5; });
+</script>
+</body>
+</html>
