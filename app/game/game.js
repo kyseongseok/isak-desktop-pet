@@ -88,7 +88,7 @@ const S = {
   objs: [], bird: { x: -60, dir: 1, y: 110, flap: 0, nextPoop: 2 },
   spawnAt: 0, itemAt: 8, wind: 0, windAt: 0,
   fx: { lightning: 0, golden_ear: 0, magnet: 0, turtle: 0, shield: 0 },
-  particles: [], toasts: [], caught: 0, dodged: 0, leaves: [], windT: 0, happyUntil: 0,
+  particles: [], toasts: [], caught: 0, dodged: 0, leaves: [], windT: 0, happyUntil: 0, windTarget: 0,
   keys: {}, best: 0, coins: 0, cap: 3,
 };
 
@@ -113,7 +113,7 @@ async function startGame() {
   if (!r.ok) { refreshIntro(); return; }
   S.coins = r.coins;
   Object.assign(S, { t: 0, stage: 1, score: 0, hearts: MAX_HEARTS, hurtUntil: 0, objs: [], particles: [], toasts: [],
-    spawnAt: 1, itemAt: 8, wind: 0, windAt: 0, caught: 0, dodged: 0, paused: false, leaves: [], windT: 0, happyUntil: 0,
+    spawnAt: 1, itemAt: 8, wind: 0, windAt: 0, windTarget: 0, caught: 0, dodged: 0, paused: false, leaves: [], windT: 0, happyUntil: 0,
     fx: { lightning: 0, golden_ear: 0, magnet: 0, turtle: 0, shield: 0 } });
   S.player.x = W / 2; S.bird = { x: -60, dir: 1, y: 110, flap: 0, nextPoop: 2 };
   S.screen = 'play'; show(''); sfx.stage(); bgm.play();
@@ -158,12 +158,12 @@ function spawn() {
   const pool = [];
   for (const [k, v] of Object.entries(FRUITS)) if (st >= v.stage) pool.push({ kind: 'fruit', name: k, w: 3 });
   // 초반엔 과일이 많고, 스테이지가 오를수록 위험물 비중이 늘어남
-  for (const [k, v] of Object.entries(HAZARDS)) if (st >= v.stage) pool.push({ kind: 'hazard', name: k, w: (k === 'poop' ? 1.9 : 1.4) + st * 0.25 });
+  for (const [k, v] of Object.entries(HAZARDS)) if (st >= v.stage) pool.push({ kind: 'hazard', name: k, w: (k === 'poop' ? 2.4 : 1.6) + st * 0.25 });
   const total = pool.reduce((s, p) => s + p.w, 0);
   let r = Math.random() * total, pick = pool[0];
   for (const p of pool) { r -= p.w; if (r <= 0) { pick = p; break; } }
   const def = pick.kind === 'fruit' ? FRUITS[pick.name] : HAZARDS[pick.name];
-  const base = 190 + st * 38;
+  const base = 215 + st * 38;
   S.objs.push({ kind: pick.kind, name: pick.name, size: def.size, x: rnd(40, W - 40), y: -50,
     vy: base * (def.speed || 1) * rnd(0.9, 1.15), vx: 0, phase: rnd(0, 6.28), zigzag: !!def.zigzag, score: def.score || 0 });
 }
@@ -198,11 +198,19 @@ function update(dt) {
   S.t += dt;
   // 스테이지
   const stage = Math.min(12, Math.floor(S.t / STAGE_SEC) + 1);
-  if (stage !== S.stage) { S.stage = stage; S.score += 100; sfx.stage(); toast(`STAGE ${stage}`, '#fff'); if (stage === 5) toast('바람이 불어요 🌬', '#fff'); }
+  if (stage !== S.stage) { S.stage = stage; S.score += 100; sfx.stage(); toast(`STAGE ${stage}`, '#fff'); if (stage === 3) toast('바람이 불어요 🌬', '#fff'); if (stage === 4) toast('돌풍 주의! 🌪', '#fff'); }
   if (S.t >= LIMIT) { endGame(true); return; }
   // 바람 (5스테이지부터, 8초마다 방향 바뀜)
-  if (S.stage >= 5 && S.t > S.windAt) { S.wind = (Math.random() < 0.5 ? -1 : 1) * rnd(50, 110); S.windAt = S.t + 8; S.leaves = []; }
-  else if (S.stage < 5) S.wind = 0;
+  if (S.stage >= 3 && S.t > S.windAt) {
+    // 3스테이지: 한 방향으로 10초씩 / 4스테이지부터: 3~5초마다 새 목표, 돌풍처럼 세기·방향이 계속 바뀜
+    const strength = 40 + S.stage * 14;
+    S.windTarget = (Math.random() < 0.5 ? -1 : 1) * rnd(strength * 0.5, strength);
+    if (S.stage >= 4 && Math.random() < 0.25) S.windTarget *= 1.6;        // 가끔 돌풍
+    S.windAt = S.t + (S.stage >= 4 ? rnd(3, 5) : 10);
+  }
+  if (S.stage < 3) { S.wind = 0; S.windTarget = 0; }
+  S.wind += (S.windTarget - S.wind) * Math.min(1, dt * (S.stage >= 4 ? 1.5 : 4));   // 부드럽게 변함
+  if (Math.abs(S.windTarget) < 8 && Math.abs(S.wind) < 8) S.wind = 0;   // 목표가 0일 때만 완전히 멈춤
   if (S.wind) { S.windT += dt; if (Math.random() < dt * 6) S.leaves.push({ x: S.wind > 0 ? -20 : W + 20, y: rnd(60, H - 120), vy: rnd(20, 60), ph: rnd(0, 6.28), age: 0 }); }
   for (const l of S.leaves) { l.age += dt; l.x += S.wind * 2.2 * dt; l.y += l.vy * dt + Math.sin(l.ph += dt * 5) * 0.8; }
   S.leaves = S.leaves.filter(l => l.age < 6 && l.x > -40 && l.x < W + 40 && l.y < H);
@@ -226,7 +234,7 @@ function update(dt) {
 
   // 스폰
   S.spawnAt -= dt * slow;
-  if (S.spawnAt <= 0) { spawn(); S.spawnAt = Math.max(0.3, 1.0 - S.stage * 0.075) * rnd(0.8, 1.2); }
+  if (S.spawnAt <= 0) { spawn(); S.spawnAt = Math.max(0.3, 0.85 - S.stage * 0.065) * rnd(0.8, 1.2); }
   S.itemAt -= dt;
   if (S.itemAt <= 0) { spawnItem(); S.itemAt = rnd(11, 17); }
 
@@ -282,14 +290,18 @@ function drawWind() {
   }
   for (const l of S.leaves) { ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(l.ph); ctx.fillStyle = '#7ac142'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 5, 0, 0, 6.28); ctx.fill(); ctx.restore(); }
   ctx.restore();
-  text(dir > 0 ? '바람 →' : '← 바람', W / 2, 54, { size: 15, align: 'center', color: '#e8f6ff' });
+  const arrows = (dir > 0 ? '→' : '←').repeat(Math.min(3, Math.ceil(speed / 50)));
+  text(dir > 0 ? `바람 ${arrows}` : `${arrows} 바람`, W / 2, 54, { size: 15, align: 'center', color: '#e8f6ff' });
 }
 
 function draw() {
   // 배경 (9:16 이미지를 높이에 맞춰 가운데 잘라 그림)
+  ctx.clearRect(0, 0, W, H);
   const bg = IMG.bg;
-  if (bg.complete && bg.naturalWidth) { const s = H / bg.naturalHeight, w = bg.naturalWidth * s; ctx.drawImage(bg, (W - w) / 2, 0, w, H); }
-  else { ctx.fillStyle = '#9fd9ff'; ctx.fillRect(0, 0, W, H); }
+  if (bg.complete && bg.naturalWidth) {
+    const s = Math.max(W / bg.naturalWidth, H / bg.naturalHeight), w = bg.naturalWidth * s, h = bg.naturalHeight * s;
+    ctx.drawImage(bg, (W - w) / 2, (H - h) / 2, w, h);
+  } else { ctx.fillStyle = '#9fd9ff'; ctx.fillRect(0, 0, W, H); }
   if (S.screen === 'intro') return;
 
   // 새
