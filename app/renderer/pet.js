@@ -580,12 +580,16 @@ menu.addEventListener('click', (e) => {
 });
 
 // ---------- 클릭 통과: 펫·말풍선·메뉴 위에서만 마우스를 받음 ----------
-let ignoring = true;
-addEventListener('mousemove', (e) => {
-  const over = !!(e.target.closest && e.target.closest('#pet, #bubble, #ctxMenu'));
-  const want = !over && !drag && !hDrag;
-  if (want !== ignoring) { ignoring = want; isak.setIgnoreMouse(want); }
-});
+// 판정은 메인 프로세스가 커서 위치로 함. 여기서는 마우스를 받아야 할 영역을 10번/초 보내 줌
+function sendHitRects() {
+  if (drag || hDrag) { isak.hitRects([{ x: -1e5, y: -1e5, w: 2e5, h: 2e5 }]); return; }   // 끌고 있는 동안은 전부 받음
+  const rects = [];
+  const add = (el, pad = 0) => { if (!el || (el !== pet && getComputedStyle(el).display === 'none') || hidden && el === pet) return;
+    const r = el.getBoundingClientRect(); rects.push({ x: r.left - pad, y: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2 }); };
+  add(pet, 4); add(bubble, 6); add(menu, 6);
+  isak.hitRects(rects);
+}
+setInterval(sendHitRects, 100);
 
 // ---------- 메인 루프 ----------
 let last = performance.now();

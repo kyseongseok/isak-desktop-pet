@@ -97,6 +97,17 @@ function send(channel, payload) { if (win) win.webContents.send(channel, payload
 ipcMain.handle('get-env', () => envForRenderer());
 ipcMain.on('save-state', (_e, partial) => { saveState(partial); updateTray(); });
 ipcMain.on('set-ignore-mouse', (_e, ignore) => { if (win) win.setIgnoreMouseEvents(ignore, { forward: true }); });
+// 클릭 통과 판정: 렌더러가 보내 준 '마우스를 받을 영역'(펫·말풍선·메뉴)과 커서 위치를 50ms마다 비교
+// 윈도우에서는 forward된 mousemove가 끊기는 경우가 있어 렌더러 쪽 판정만으로는 펫이 먹통이 됨
+let hitRects = [], lastOver = null;
+ipcMain.on('hit-rects', (_e, rects) => { hitRects = rects; });
+setInterval(() => {
+  if (!win || win.isDestroyed()) return;
+  const c = screen.getCursorScreenPoint(), b = win.getBounds();
+  const x = c.x - b.x, y = c.y - b.y;
+  const over = hitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  if (over !== lastOver) { lastOver = over; win.setIgnoreMouseEvents(!over, { forward: true }); }
+}, 50);
 ipcMain.on('set-on-top', (_e, onTop) => {
   if (!win) return;
   // 알림·말풍선이 떠 있는 동안만 맨 위로, 평소에는 다른 창 뒤로 내려감
@@ -129,9 +140,9 @@ function openGame(kind = 'orchard') {
   if (!GAMES[kind]) kind = 'orchard';
   if (gameWin) { gameWin.focus(); return; }
   const a = currentDisplay().workArea;
-  const W = 480, H = 800;
+  const H = Math.min(800, a.height - 60), W = Math.round(H * 480 / 800);   // 작은 화면·배율 큰 PC에서도 다 보이게
   gameWin = new BrowserWindow({
-    width: W, height: H, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
+    width: W, height: H, useContentSize: true, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
     resizable: false, maximizable: false, fullscreenable: false, title: GAMES[kind].title,
     backgroundColor: '#9fd9ff', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'game', 'preload.js'), contextIsolation: true, nodeIntegration: false },

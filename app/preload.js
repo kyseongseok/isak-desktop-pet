@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('isak', {
   getEnv: () => ipcRenderer.invoke('get-env'),
   saveState: (partial) => ipcRenderer.send('save-state', partial),
   setIgnoreMouse: (ignore) => ipcRenderer.send('set-ignore-mouse', ignore),
+  hitRects: (rects) => ipcRenderer.send('hit-rects', rects),
   setOnTop: (onTop) => ipcRenderer.send('set-on-top', onTop),
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   petDropped: () => ipcRenderer.send('pet-dropped'),

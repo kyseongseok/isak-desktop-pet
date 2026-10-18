@@ -81,6 +81,13 @@ function strokes(str) {
 }
 
 // ---------- 상태 ----------
+
+// 무대 맞추기: 창이 480×800보다 작거나 비율이 다르면 축소해서 가운데 배치
+(function fitStage() {
+  const st = document.getElementById('stage');
+  const apply = () => { const s = Math.min(innerWidth / 480, innerHeight / 800); st.style.transform = `translate(${Math.round((innerWidth - 480 * s) / 2)}px, ${Math.round((innerHeight - 800 * s) / 2)}px) scale(${s})`; };
+  apply(); addEventListener('resize', apply);
+})();
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const dpr = Math.min(2, devicePixelRatio || 1);
 canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);

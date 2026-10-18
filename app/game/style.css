@@ -5,7 +5,8 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #9fd9ff; user-select: none; }
 body { font-family: 'Galmuri11', 'Malgun Gothic', sans-serif; color: #2b3a2e; }
-#stage { position: relative; width: 480px; height: 800px; margin: 0 auto; overflow: hidden; }
+/* 창 크기·배율이 달라도 480×800 무대를 통째로 축소해 다 보이게 */
+#stage { position: absolute; left: 0; top: 0; width: 480px; height: 800px; overflow: hidden; transform-origin: 0 0; }
 #c { position: absolute; inset: 0; width: 480px; height: 800px; image-rendering: auto; }
 
 .screen { position: absolute; inset: 0; display: none; }
