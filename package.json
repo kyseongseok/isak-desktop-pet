@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "kr.go.rda.isak-pet",
-    "productName": "이삭이",
+    "productName": "IsakPet",
     "files": [
       "app/**/*",
       "package.json"
