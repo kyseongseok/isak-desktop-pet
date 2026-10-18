@@ -224,11 +224,13 @@ function otAlarm(stage) {
       { label: '지금 눌렀어요', onClick: otPressed } ] });
     isak.notify('이삭이', `${dl} 근무확인 마감이 지났어요. 사유 적고 눌러 주세요`);
     siren.play(4);
+    isak.alarmStage({ stage: 4, text: `${dl} 마감이 지났어요`, deadline: dl });
     setTimeout(() => siren.stop(), 20000);          // 초과 상태는 20초만 울리고 말풍선만 남김
     return;
   }
   const text = { 1: '근무확인 누를 시간이에요! 🔔', 2: '3분 남았어요! ⏳', 3: '1분 남았어요!! 🚨' }[stage];
   siren.play(stage);
+  isak.alarmStage({ stage, text, deadline: dl });
   emote('alarm', 0, { poke: 4 + stage });
   s.shake = stage;
   say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭해 주세요</small>`, { ms: 0, alarm: true });
@@ -242,7 +244,7 @@ function otPressed() {
   const late = OT.stage === 4;
   OT.base = Date.now(); OT.stage = 0; OT.pendingPress = false; otSave();
   if (late) { emote('hello', 4500, { poke: 4 }); say(`괜찮아요, 그럴 수 있죠! 🙂<br>${nextInfo()}`, { ms: 5000 }); }
-  else { emote('best', 2500, { poke: 5 }); say(`근무확인 완료! 최고예요 👍<br>${nextInfo()}`, { ms: 5000 }); }
+  else { emote('best', 2500, { poke: 5 }); say(`근무확인 완료! 최고예요 👍<br>${nextInfo()}`, { ms: 5000 }); isak.coinBonus(); }
 }
 
 function otFixTime() {
@@ -442,7 +444,18 @@ function sirenSettings() {
   bubble.querySelector('.choices').classList.add('wrap');
 }
 
+async function openGame() {
+  interrupt();
+  const c = await isak.getCoins();
+  if (c.coins <= 0) {
+    const left = Math.ceil((c.intervalMs - c.progressMs) / MIN);
+    emote('think', 3500); say(`코인이 없어요 🪙<br><small>다음 코인까지 약 ${left}분 · 근무확인을 제때 누르면 +1</small>`, { ms: 4500 });
+    return;
+  }
+  isak.openGame();
+}
 const menuActions = {
+  game: openGame,
   siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(),
@@ -614,7 +627,17 @@ let resumedSession = false;
 isak.on('env', (e) => applyEnv(e));
 isak.on('moved-display', (e) => { applyEnv(e); s.vx *= 0.3; });
 isak.on('user-return', onUserReturn);
-isak.on('coin', ({ coins }) => { interrupt(); emote('cheer', 2600, { poke: 6 }); say(`코인 +1 🪙 (보유 ${coins}/5)`); });
+isak.on('coin', ({ coins, cap, reason }) => {
+  if (bubbleBusy()) return;
+  interrupt(); emote('cheer', 2600, { poke: 6 });
+  say(reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
+});
+isak.on('game-result', ({ score, best, cleared }) => {
+  interrupt();
+  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(`과수원 클리어! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
+  else if (best) { emote('best', 4000, { poke: 5 }); say(`최고 기록! ${score.toLocaleString()}점 👍`, { ms: 4000 }); }
+  else { emote('hello', 3000, { poke: 3 }); say(`${score.toLocaleString()}점! 다음엔 더 잘할 수 있어요`, { ms: 3500 }); }
+});
 isak.on('command', (c) => {
   if (c.type === 'ask') otAsk();
   else if (c.type === 'pressed') otPressed();

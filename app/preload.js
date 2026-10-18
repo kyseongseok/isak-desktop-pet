@@ -8,8 +8,12 @@ contextBridge.exposeInMainWorld('isak', {
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   petDropped: () => ipcRenderer.send('pet-dropped'),
   quit: () => ipcRenderer.send('quit'),
+  openGame: () => ipcRenderer.send('open-game'),
+  coinBonus: () => ipcRenderer.send('coin-bonus'),
+  getCoins: () => ipcRenderer.invoke('get-coins'),
+  alarmStage: (info) => ipcRenderer.send('alarm-stage', info),
   on: (channel, cb) => {
-    const ok = ['env', 'moved-display', 'user-return', 'command', 'coin'];
+    const ok = ['env', 'moved-display', 'user-return', 'command', 'coin', 'game-result', 'game-closed'];
     if (ok.includes(channel)) ipcRenderer.on(channel, (_e, data) => cb(data));
   },
 });

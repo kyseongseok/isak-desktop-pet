@@ -7,7 +7,8 @@ const { isHoliday } = require('./holidays');
 
 const IDLE_AWAY_SEC = 10 * 60;      // 이만큼 입력이 없으면 자리 비움
 const COIN_INTERVAL_MS = 2 * 60 * 60 * 1000;
-const COIN_CAP = 5;
+const COIN_CAP = 3;               // 보유 상한
+const COIN_IDLE_SEC = 10 * 60;    // 이만큼 입력이 없으면 코인이 쌓이지 않음
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -21,7 +22,7 @@ const defaultState = {
   displayId: null,
   autoplay: true,
   autostart: true,
-  coins: 5,                         // 처음 설치 시 체험용 5개
+  coins: 3,                         // 처음 설치 시 체험용 3개
   coinProgressMs: 0,
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
   sound: { theme: 'quiet', volume: 40 },   // 알람 소리: 조용히 / 클럽 / 앰뷸런스 / 경찰차
@@ -31,6 +32,7 @@ function loadState() {
   try { state = { ...defaultState, ...JSON.parse(fs.readFileSync(statePath(), 'utf-8')) }; } catch (e) {}
   const today = workDate();
   if (state.ot.date !== today) state.ot = { status: 'none', base: null, date: today };
+  state.coins = Math.min(COIN_CAP, state.coins);
 }
 function saveState(partial = {}) {
   Object.assign(state, partial);
@@ -116,6 +118,29 @@ ipcMain.on('pet-dropped', () => {
 });
 ipcMain.on('quit', () => app.quit());
 
+// ---------- 게임 창: 펫 창은 키보드를 못 받으므로 별도의 보통 창 ----------
+let gameWin = null;
+function openGame() {
+  if (gameWin) { gameWin.focus(); return; }
+  const a = currentDisplay().workArea;
+  const W = 480, H = 800;
+  gameWin = new BrowserWindow({
+    width: W, height: H, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
+    resizable: false, maximizable: false, fullscreenable: false, title: '이삭이의 과수원',
+    backgroundColor: '#9fd9ff', autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'game', 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  });
+  gameWin.setMenuBarVisibility(false);
+  gameWin.loadFile(path.join(__dirname, 'game', 'index.html'));
+  gameWin.on('closed', () => { gameWin = null; send('game-closed'); });
+}
+ipcMain.on('open-game', openGame);
+ipcMain.on('close-game', () => { if (gameWin) gameWin.close(); });
+ipcMain.on('game-result', (_e, r) => { send('game-result', r); });      // 결과를 펫에게 전달 (축하 리액션)
+ipcMain.on('alarm-stage', (_e, info) => { if (gameWin) gameWin.webContents.send('alarm', info); });   // 알람이 오면 게임 일시정지
+ipcMain.on('save-best', (_e, best) => saveState({ gameBest: Math.max(state.gameBest || 0, best) }));
+ipcMain.handle('get-best', () => state.gameBest || 0);
+
 // ---------- 자리 비움 감지 ----------
 let wasAway = false;
 setInterval(() => {
@@ -133,15 +158,29 @@ setInterval(() => {
   if (d !== lastDate) { lastDate = d; sendEnv(); updateTray(); }
 }, 60 * 1000);
 
-// ---------- 코인: 앱이 켜져 있는 시간 2시간마다 1개, 최대 5개 ----------
+// ---------- 코인: 실제로 앉아서 일한 시간 2시간마다 1개, 최대 3개 ----------
+// 자리 비움(10분 이상 입력 없음) 중에는 쌓이지 않음. 제때 근무확인을 누르면 보너스 +1
+function addCoin(reason) {
+  if (state.coins >= COIN_CAP) return false;
+  state.coins += 1; saveState();
+  send('coin', { coins: state.coins, cap: COIN_CAP, reason });
+  updateTray();
+  return true;
+}
+ipcMain.on('coin-bonus', () => addCoin('bonus'));
+ipcMain.handle('spend-coin', () => {
+  if (state.coins <= 0) return { ok: false, coins: 0, cap: COIN_CAP };
+  state.coins -= 1; saveState(); updateTray();
+  return { ok: true, coins: state.coins, cap: COIN_CAP };
+});
+ipcMain.handle('get-coins', () => ({ coins: state.coins, cap: COIN_CAP, progressMs: state.coinProgressMs, intervalMs: COIN_INTERVAL_MS }));
 setInterval(() => {
   if (state.coins >= COIN_CAP) { state.coinProgressMs = 0; return; }
+  if (powerMonitor.getSystemIdleTime() >= COIN_IDLE_SEC) return;      // 자리 비움: 적립 멈춤
   state.coinProgressMs += 60 * 1000;
   if (state.coinProgressMs >= COIN_INTERVAL_MS) {
     state.coinProgressMs -= COIN_INTERVAL_MS;
-    state.coins = Math.min(COIN_CAP, state.coins + 1);
-    send('coin', { coins: state.coins });
-    updateTray();
+    addCoin('time');
   }
   saveState();
 }, 60 * 1000);
@@ -165,6 +204,7 @@ function updateTray() {
   const ot = state.ot.status;
   const menu = Menu.buildFromTemplate([
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
+    { label: '🎮 이삭이의 과수원', click: openGame },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },

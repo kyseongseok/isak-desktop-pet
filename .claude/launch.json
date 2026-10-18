@@ -4,7 +4,7 @@
     {
       "name": "pet-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "preview"],
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "."],
       "port": 8765
     }
   ]
