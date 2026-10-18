@@ -126,7 +126,7 @@ function openGame() {
   const W = 480, H = 800;
   gameWin = new BrowserWindow({
     width: W, height: H, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
-    resizable: false, maximizable: false, fullscreenable: false, title: '이삭이의 과수원',
+    resizable: false, maximizable: false, fullscreenable: false, title: '과수원을 지켜라',
     backgroundColor: '#9fd9ff', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'game', 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
@@ -204,7 +204,7 @@ function updateTray() {
   const ot = state.ot.status;
   const menu = Menu.buildFromTemplate([
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
-    { label: '🎮 이삭이의 과수원', click: openGame },
+    { label: '🎮 과수원을 지켜라', click: openGame },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },

@@ -634,7 +634,7 @@ isak.on('coin', ({ coins, cap, reason }) => {
 });
 isak.on('game-result', ({ score, best, cleared }) => {
   interrupt();
-  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(`과수원 클리어! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
+  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(`과수원을 지켰어요! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
   else if (best) { emote('best', 4000, { poke: 5 }); say(`최고 기록! ${score.toLocaleString()}점 👍`, { ms: 4000 }); }
   else { emote('hello', 3000, { poke: 3 }); say(`${score.toLocaleString()}점! 다음엔 더 잘할 수 있어요`, { ms: 3500 }); }
 });
