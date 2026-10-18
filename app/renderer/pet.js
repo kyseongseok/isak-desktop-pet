@@ -151,8 +151,9 @@ function otReset() {
   OT.date = workDate(); otSave();
 }
 
+let bootDone = false;                          // 시작 인사·튜토리얼을 먼저 정한 뒤에 질문·알람이 돌기 시작
 function otTick() {
-  if (tutorial.active) return;                 // 튜토리얼이 끝날 때까지 질문·알람 보류
+  if (!bootDone || tutorial.active) return;    // 튜토리얼이 끝날 때까지 질문·알람 보류
   const t = Date.now();
   // 앱을 켜 둔 채 근무일이 바뀌면(새벽 5시 지남) 어제 기록은 버리고 새로 시작
   if (OT.date !== workDate()) { interrupt(); otReset(); }
@@ -721,13 +722,14 @@ let resumedSession = false;
   }
   requestAnimationFrame(tick);
   setTimeout(() => {
+    bootDone = true;
+    if (!st.tutorialDone) { tutorial.start(); return; }   // 처음 설치: 안내가 가장 먼저
     if (bubbleBusy()) return;
     if (resumedSession && OT.status === 'active') {       // 재부팅·재시작 뒤 이어가기
       emote('hello', 3000, { poke: 3 }); say(OT.base ? `다시 켜졌네요! 초과근무 이어서 할게요 🙂<br>${nextInfo()}` : '다시 켜졌네요! 근무확인을 누르면 저를 클릭해 주세요 🙂', { ms: 6000 });
     } else if (resumedSession) {
       emote('sleep', 0); say('제외시간 중이었죠? 돌아오셨으면 저를 클릭해 주세요', { ms: 0, choices: [{ label: '복귀했어요', onClick: otResume }] });
-    } else if (!st.tutorialDone) tutorial.start();   // 처음 설치: 안내 한 바퀴
-    else actions.hello();
+    } else actions.hello();
   }, 600);
 })();
 
