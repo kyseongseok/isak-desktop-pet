@@ -6,6 +6,8 @@ const game = window.game || {
   getCoins: async () => ({ coins: 3, cap: 3, progressMs: 0, intervalMs: 7200000 }),
   spendCoin: async () => ({ ok: true, coins: 2, cap: 3 }),
   getBest: async () => 0, saveBest() {}, result() {}, close() { location.reload(); }, onAlarm() {},
+  saveScore() {}, getHistory: async () => [],
+  async shareCard(dataUrl) { const a = document.createElement('a'); a.href = dataUrl; a.download = 'score.png'; a.click(); return { copied: false, saved: true }; },
 };
 
 const W = 480, H = 800, GROUND = H - 28;
@@ -17,7 +19,7 @@ const MAX_HEARTS = 5;
 const IMG = {};
 const NAMES = ['bg', 'apple', 'pear', 'persimmon', 'poop', 'hail', 'bug', 'branch', 'bird_up', 'bird_down',
   'item_lightning', 'item_umbrella', 'item_golden_ear', 'item_magnet', 'item_sprout', 'item_turtle',
-  'isak_basket', 'isak_hit', 'isak_umbrella', 'isak_over', 'isak_win'];
+  'isak_basket', 'isak_hit', 'isak_umbrella', 'isak_over', 'isak_win', 'isak_happy'];
 let loaded = 0;
 NAMES.forEach(n => { const i = new Image(); i.src = `img/${n}.png`; i.onload = () => loaded++; IMG[n] = i; });
 
@@ -53,6 +55,25 @@ const sfx = (() => {
   };
 })();
 
+// ---------- 배경음악 (music/bgm.ogg 또는 bgm.mp3가 있을 때만) ----------
+const bgm = (() => {
+  let audio = null, on = true, available = false;
+  for (const f of ['music/bgm.ogg', 'music/bgm.mp3']) {
+    if (audio) break;
+    const a = new Audio(f); a.loop = true; a.volume = 0.18;
+    a.addEventListener('canplaythrough', () => { available = true; }, { once: true });
+    a.addEventListener('error', () => {}, { once: true });
+    audio = a;
+  }
+  return {
+    play() { if (audio && on) audio.play().catch(() => {}); },
+    stop() { if (audio) { audio.pause(); audio.currentTime = 0; } },
+    pause() { if (audio) audio.pause(); },
+    toggle() { on = !on; if (!on) audio && audio.pause(); else if (S.screen === 'play') this.play(); return on; },
+    get available() { return available; },
+  };
+})();
+
 // ---------- 상태 ----------
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 const dpr = Math.min(2, devicePixelRatio || 1);
@@ -66,7 +87,7 @@ const S = {
   objs: [], bird: { x: -60, dir: 1, y: 110, flap: 0, nextPoop: 2 },
   spawnAt: 0, itemAt: 8, wind: 0, windAt: 0,
   fx: { lightning: 0, golden_ear: 0, magnet: 0, turtle: 0, shield: 0 },
-  particles: [], toasts: [], caught: 0, dodged: 0,
+  particles: [], toasts: [], caught: 0, dodged: 0, leaves: [], windT: 0, happyUntil: 0,
   keys: {}, best: 0, coins: 0, cap: 3,
 };
 
@@ -79,6 +100,9 @@ async function refreshIntro() {
   S.best = await game.getBest();
   $('introCoins').textContent = `🪙 코인 ${S.coins}/${S.cap} · 1판 = 1코인`;
   $('introBest').textContent = S.best ? `BEST ${S.best.toLocaleString()}` : 'BEST —';
+  const hist = await game.getHistory();
+  const top = [...hist].sort((a, b) => b.score - a.score).slice(0, 3);
+  $('introRanks').textContent = top.length ? 'TOP 3 · ' + top.map(h => `${h.score.toLocaleString()}${h.cleared ? '★' : ''}`).join(' · ') : '';
   $('pressStart').textContent = S.coins > 0 ? 'PRESS SPACE' : '코인이 없어요';
   $('pressStart').classList.toggle('blink', S.coins > 0);
 }
@@ -88,10 +112,10 @@ async function startGame() {
   if (!r.ok) { refreshIntro(); return; }
   S.coins = r.coins;
   Object.assign(S, { t: 0, stage: 1, score: 0, hearts: MAX_HEARTS, hurtUntil: 0, objs: [], particles: [], toasts: [],
-    spawnAt: 1, itemAt: 8, wind: 0, windAt: 0, caught: 0, dodged: 0, paused: false,
+    spawnAt: 1, itemAt: 8, wind: 0, windAt: 0, caught: 0, dodged: 0, paused: false, leaves: [], windT: 0, happyUntil: 0,
     fx: { lightning: 0, golden_ear: 0, magnet: 0, turtle: 0, shield: 0 } });
   S.player.x = W / 2; S.bird = { x: -60, dir: 1, y: 110, flap: 0, nextPoop: 2 };
-  S.screen = 'play'; show(''); sfx.stage();
+  S.screen = 'play'; show(''); sfx.stage(); bgm.play();
   toast(`STAGE 1`, '#fff');
 }
 
@@ -103,6 +127,9 @@ function endGame(cleared) {
   $('resultScore').textContent = S.score.toLocaleString();
   $('resultBest').textContent = isBest ? '🏆 최고 기록 갱신!' : `BEST ${S.best.toLocaleString()}`;
   $('resultStats').textContent = `스테이지 ${S.stage} · 과일 ${S.caught}개 · ${Math.floor(S.t)}초`;
+  game.saveScore({ score: S.score, stage: S.stage, cleared, caught: S.caught, date: new Date().toISOString() });
+  bgm.stop();
+  $('shareBtn').textContent = '📸 점수 카드 복사·저장';
   game.getCoins().then(c => { S.coins = c.coins; S.cap = c.cap;
     $('retryBtn').textContent = `다시 하기 (🪙 ${S.coins}/${S.cap})`; $('retryBtn').disabled = S.coins <= 0; });
   show('result');
@@ -112,12 +139,13 @@ function endGame(cleared) {
 
 function pause(reason) {
   if (S.screen !== 'play') return;
+  bgm.pause();
   S.paused = true; S.pauseReason = reason || '';
   $('pauseTitle').textContent = reason ? '⏰ 근무확인!' : '일시정지';
   $('pauseText').innerHTML = reason ? `${reason}<br>이삭이를 확인하고 돌아오세요` : 'P 또는 ESC로 계속';
   show('pause');
 }
-function resume() { if (S.screen === 'play') { S.paused = false; show(''); } }
+function resume() { if (S.screen === 'play') { S.paused = false; show(''); bgm.play(); } }
 
 // ---------- 게임 루프 ----------
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -129,12 +157,12 @@ function spawn() {
   const pool = [];
   for (const [k, v] of Object.entries(FRUITS)) if (st >= v.stage) pool.push({ kind: 'fruit', name: k, w: 3 });
   // 초반엔 과일이 많고, 스테이지가 오를수록 위험물 비중이 늘어남
-  for (const [k, v] of Object.entries(HAZARDS)) if (st >= v.stage) pool.push({ kind: 'hazard', name: k, w: (k === 'poop' ? 1.2 : 1.0) + st * 0.15 });
+  for (const [k, v] of Object.entries(HAZARDS)) if (st >= v.stage) pool.push({ kind: 'hazard', name: k, w: (k === 'poop' ? 1.9 : 1.4) + st * 0.25 });
   const total = pool.reduce((s, p) => s + p.w, 0);
   let r = Math.random() * total, pick = pool[0];
   for (const p of pool) { r -= p.w; if (r <= 0) { pick = p; break; } }
   const def = pick.kind === 'fruit' ? FRUITS[pick.name] : HAZARDS[pick.name];
-  const base = 170 + st * 32;
+  const base = 190 + st * 38;
   S.objs.push({ kind: pick.kind, name: pick.name, size: def.size, x: rnd(40, W - 40), y: -50,
     vy: base * (def.speed || 1) * rnd(0.9, 1.15), vx: 0, phase: rnd(0, 6.28), zigzag: !!def.zigzag, score: def.score || 0 });
 }
@@ -172,8 +200,11 @@ function update(dt) {
   if (stage !== S.stage) { S.stage = stage; S.score += 100; sfx.stage(); toast(`STAGE ${stage}`, '#fff'); if (stage === 5) toast('바람이 불어요 🌬', '#fff'); }
   if (S.t >= LIMIT) { endGame(true); return; }
   // 바람 (5스테이지부터, 8초마다 방향 바뀜)
-  if (S.stage >= 5 && S.t > S.windAt) { S.wind = (Math.random() < 0.5 ? -1 : 1) * rnd(40, 90); S.windAt = S.t + 8; }
+  if (S.stage >= 5 && S.t > S.windAt) { S.wind = (Math.random() < 0.5 ? -1 : 1) * rnd(50, 110); S.windAt = S.t + 8; S.leaves = []; }
   else if (S.stage < 5) S.wind = 0;
+  if (S.wind) { S.windT += dt; if (Math.random() < dt * 6) S.leaves.push({ x: S.wind > 0 ? -20 : W + 20, y: rnd(60, H - 120), vy: rnd(20, 60), ph: rnd(0, 6.28), age: 0 }); }
+  for (const l of S.leaves) { l.age += dt; l.x += S.wind * 2.2 * dt; l.y += l.vy * dt + Math.sin(l.ph += dt * 5) * 0.8; }
+  S.leaves = S.leaves.filter(l => l.age < 6 && l.x > -40 && l.x < W + 40 && l.y < H);
 
   // 플레이어
   const p = S.player;
@@ -190,11 +221,11 @@ function update(dt) {
   if (b.x > W + 60) b.dir = -1; if (b.x < -60) b.dir = 1;
   b.flap += dt * 8;
   b.nextPoop -= dt * slow;
-  if (b.nextPoop <= 0 && b.x > 30 && b.x < W - 30) { birdPoop(); b.nextPoop = rnd(3.5, 6.5) - Math.min(2, S.stage * 0.2); }
+  if (b.nextPoop <= 0 && b.x > 30 && b.x < W - 30) { birdPoop(); b.nextPoop = rnd(2.5, 5) - Math.min(1.8, S.stage * 0.22); }
 
   // 스폰
   S.spawnAt -= dt * slow;
-  if (S.spawnAt <= 0) { spawn(); S.spawnAt = Math.max(0.35, 1.15 - S.stage * 0.07) * rnd(0.8, 1.2); }
+  if (S.spawnAt <= 0) { spawn(); S.spawnAt = Math.max(0.3, 1.0 - S.stage * 0.075) * rnd(0.8, 1.2); }
   S.itemAt -= dt;
   if (S.itemAt <= 0) { spawnItem(); S.itemAt = rnd(11, 17); }
 
@@ -213,7 +244,7 @@ function update(dt) {
     const r = o.kind === 'hazard' ? HIT_R + o.size * 0.3 : CATCH_R + o.size * 0.38;
     if (d < r) {
       o.dead = true;
-      if (o.kind === 'fruit') { const mult = S.t < S.fx.golden_ear ? 2 : 1; S.score += o.score * mult; S.caught++; sfx.catch(); puff(o.x, o.y, '#ffd93c', 6); if (mult > 1) toast(`+${o.score * mult}`, '#ffd93c'); }
+      if (o.kind === 'fruit') { const mult = S.t < S.fx.golden_ear ? 2 : 1; S.score += o.score * mult; S.caught++; S.happyUntil = S.t + 0.4; sfx.catch(); puff(o.x, o.y, '#ffd93c', 6); if (mult > 1) toast(`+${o.score * mult}`, '#ffd93c'); }
       else if (o.kind === 'item') applyItem(o.name);
       else hurt();
     } else if (o.y > GROUND + 30) { o.dead = true; if (o.kind === 'hazard') S.dodged++; }
@@ -237,6 +268,22 @@ function text(str, x, y, { size = 16, color = '#fff', align = 'left', font = 'Ga
   ctx.fillStyle = color; ctx.fillText(str, x, y);
 }
 
+// 바람: 흐르는 줄기 + 날리는 잎
+function drawWind() {
+  const dir = Math.sign(S.wind), speed = Math.abs(S.wind);
+  ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const y = 110 + i * 72 + Math.sin(S.windT * 2 + i) * 10;
+    const len = 60 + (i % 3) * 30;
+    const off = ((S.windT * speed * 2.5 + i * 140) % (W + 200)) - 100;
+    const x = dir > 0 ? off : W - off;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dir * len / 2, y - 8, x + dir * len, y); ctx.stroke();
+  }
+  for (const l of S.leaves) { ctx.save(); ctx.translate(l.x, l.y); ctx.rotate(l.ph); ctx.fillStyle = '#7ac142'; ctx.beginPath(); ctx.ellipse(0, 0, 9, 5, 0, 0, 6.28); ctx.fill(); ctx.restore(); }
+  ctx.restore();
+  text(dir > 0 ? '바람 →' : '← 바람', W / 2, 54, { size: 15, align: 'center', color: '#e8f6ff' });
+}
+
 function draw() {
   // 배경 (9:16 이미지를 높이에 맞춰 가운데 잘라 그림)
   const bg = IMG.bg;
@@ -248,7 +295,7 @@ function draw() {
   const b = S.bird;
   drawImg(Math.sin(b.flap) > 0 ? 'bird_up' : 'bird_down', b.x, b.y + Math.sin(b.flap / 2) * 4, 64, b.dir > 0);
   // 바람 표시
-  if (S.wind) text(S.wind > 0 ? '→ 바람' : '바람 ←', W / 2, 150, { size: 14, align: 'center', color: '#e8f6ff' });
+  if (S.wind) drawWind();
 
   // 오브젝트
   for (const o of S.objs) {
@@ -263,12 +310,13 @@ function draw() {
   // 플레이어
   const p = S.player, hurt = S.t < S.hurtUntil, hurtRecent = S.t < S.hurtUntil - 0.6;
   const shield = S.fx.shield > 0;
-  const sprite = hurtRecent ? 'isak_hit' : shield ? 'isak_umbrella' : 'isak_basket';
+  const happy = S.t < S.happyUntil && !shield;
+  const sprite = hurtRecent ? 'isak_hit' : shield ? 'isak_umbrella' : happy ? 'isak_happy' : 'isak_basket';
   const bob = Math.abs(Math.sin(S.t * 9)) * ((S.keys.ArrowLeft || S.keys.ArrowRight || S.keys.KeyA || S.keys.KeyD) ? 6 : 0);
   const blink = hurt && Math.floor(S.t * 12) % 2 === 0;
   // 그림자
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND + 2, 44, 9, 0, 0, 6.28); ctx.fill();
-  drawImg(sprite, p.x, GROUND - 62 - bob, 130, false, blink ? 0.4 : 1);
+  drawImg(sprite, p.x, GROUND - 62 - bob - (happy ? 10 : 0), 130, false, blink ? 0.4 : 1);
   if (S.t < S.fx.lightning) { ctx.strokeStyle = '#ffd93c'; ctx.lineWidth = 3; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.arc(p.x, GROUND - 62, 70, 0, 6.28); ctx.stroke(); ctx.setLineDash([]); }
   if (S.t < S.fx.magnet) { ctx.strokeStyle = 'rgba(80,120,255,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, GROUND - 62, 220, 0, 6.28); ctx.stroke(); }
 
@@ -296,6 +344,28 @@ function draw() {
   }
 }
 
+// ---------- 점수 인증 카드 ----------
+async function shareCard() {
+  const cw = 640, ch = 360, c = document.createElement('canvas'); c.width = cw * 2; c.height = ch * 2;
+  const g = c.getContext('2d'); g.scale(2, 2);
+  const bg = IMG.bg; const s = cw / bg.naturalWidth; g.drawImage(bg, 0, -(bg.naturalHeight * s - ch) * 0.55, cw, bg.naturalHeight * s);
+  g.fillStyle = 'rgba(43,58,46,.72)'; g.fillRect(0, 0, cw, ch);
+  g.strokeStyle = '#fffbe6'; g.lineWidth = 6; g.strokeRect(14, 14, cw - 28, ch - 28);
+  const t = (str, x, y, size, color = '#fffbe6', font = 'Galmuri14', align = 'left') => { g.font = `${size}px ${font}`; g.textAlign = align; g.textBaseline = 'top'; g.lineWidth = 5; g.strokeStyle = '#2b3a2e'; g.lineJoin = 'round'; g.strokeText(str, x, y); g.fillStyle = color; g.fillText(str, x, y); };
+  const im = IMG[S.hearts > 0 ? 'isak_win' : 'isak_over']; if (im.complete) g.drawImage(im, cw - 230, 110, 220, 220);
+  t('과수원을 지켜라!', 36, 34, 34);
+  t('SCORE', 36, 96, 20, '#cfe9df');
+  t(S.score.toLocaleString(), 36, 118, 58, '#ffd93c');
+  t(`${S.hearts > 0 ? 'CLEAR ★' : 'GAME OVER'}  ·  스테이지 ${S.stage}  ·  과일 ${S.caught}개`, 36, 196, 18, '#fff', 'Galmuri11');
+  const d = new Date();
+  t(`${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, 36, 226, 16, '#cfe9df', 'Galmuri11');
+  t(S.score >= S.best ? '🏆 개인 최고 기록' : `BEST ${S.best.toLocaleString()}`, 36, 262, 16, '#ffd93c', 'Galmuri11');
+  t('이삭이 데스크톱 펫 · 농촌진흥청', 36, ch - 44, 13, '#cfe9df', 'Galmuri11');
+  const r = await game.shareCard(c.toDataURL('image/png'));
+  $('shareBtn').textContent = r.copied ? '✅ 복사했어요 · 메신저에 붙여넣기' : '✅ 저장했어요';
+}
+$('shareBtn').onclick = shareCard;
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.033, (now - last) / 1000); last = now;
@@ -313,7 +383,8 @@ addEventListener('keydown', (e) => {
     if (S.screen === 'play') (S.paused ? resume : pause)();
     else if (S.screen === 'result' && e.code === 'Escape') game.close();
   }
-  if (e.code === 'KeyM') $('mute').textContent = sfx.toggle() ? '🔇' : '🔊';
+  if (e.code === 'KeyM') { const m = sfx.toggle(); $('mute').textContent = m ? '🔇' : '🔊'; }
+  if (e.code === 'KeyB') $('bgm').classList.toggle('off', !bgm.toggle());
 });
 addEventListener('keyup', (e) => { S.keys[e.code] = false; });
 addEventListener('blur', () => { S.keys = {}; if (S.screen === 'play' && !S.paused) pause(); });
@@ -322,6 +393,7 @@ $('retryBtn').onclick = startGame;
 $('closeBtn').onclick = () => game.close();
 $('x').onclick = () => game.close();
 $('mute').onclick = () => { $('mute').textContent = sfx.toggle() ? '🔇' : '🔊'; };
+$('bgm').onclick = () => $('bgm').classList.toggle('off', !bgm.toggle());
 game.onAlarm((info) => { if (S.screen === 'play') pause(info.text); });
 
 // ---------- 시작 ----------

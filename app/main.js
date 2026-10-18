@@ -1,6 +1,6 @@
 // 이삭이 데스크톱 펫 — 메인 프로세스
 // 창 관리(투명 오버레이, 모니터 이동), 트레이 메뉴, 상태 저장, 자리 비움 감지, 알림
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, powerMonitor, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, powerMonitor, Notification, clipboard, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { isHoliday } = require('./holidays');
@@ -140,6 +140,24 @@ ipcMain.on('game-result', (_e, r) => { send('game-result', r); });      // 결�
 ipcMain.on('alarm-stage', (_e, info) => { if (gameWin) gameWin.webContents.send('alarm', info); });   // 알람이 오면 게임 일시정지
 ipcMain.on('save-best', (_e, best) => saveState({ gameBest: Math.max(state.gameBest || 0, best) }));
 ipcMain.handle('get-best', () => state.gameBest || 0);
+// 최근 기록 20개 (점수·스테이지·클리어 여부·날짜)
+ipcMain.on('save-score', (_e, rec) => {
+  const hist = [rec, ...(state.gameHistory || [])].slice(0, 20);
+  saveState({ gameHistory: hist });
+});
+ipcMain.handle('get-history', () => state.gameHistory || []);
+// 점수 인증 카드: 클립보드에 복사하고, 원하면 PNG로 저장
+ipcMain.handle('share-card', async (_e, dataUrl) => {
+  const img = nativeImage.createFromDataURL(dataUrl);
+  clipboard.writeImage(img);
+  const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const r = await dialog.showSaveDialog(gameWin, {
+    title: '점수 카드 저장', defaultPath: path.join(app.getPath('downloads'), `과수원을지켜라_${stamp}.png`),
+    filters: [{ name: 'PNG 이미지', extensions: ['png'] }],
+  });
+  if (!r.canceled && r.filePath) fs.writeFileSync(r.filePath, img.toPNG());
+  return { copied: true, saved: !r.canceled };
+});
 
 // ---------- 자리 비움 감지 ----------
 let wasAway = false;
