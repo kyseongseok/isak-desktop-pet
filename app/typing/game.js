@@ -153,14 +153,18 @@ function resume() { if (S.screen === 'play') { S.paused = false; show(''); input
 function pickWord() {
   const st = S.stage;
   // 가끔 아이템 새: 거북이(느리게) / 새싹이(하트)
-  if (Math.random() < 0.06) return pick([{ word: '거북이', kind: 'turtle' }, { word: '새싹이', kind: 'sprout' }]);
-  const korean = [...WORDS.rda, ...WORDS.plan, ...WORDS.agri];
+  if (Math.random() < (st >= 3 ? 0.06 : 0.02)) return pick([{ word: '거북이', kind: 'turtle' }, { word: '새싹이', kind: 'sprout' }]);
   if (st >= 5 && WORDS.english.length && Math.random() < 0.3) return { word: pick(WORDS.english), kind: 'en' };
-  return { word: pick(korean), kind: 'ko' };
+  // 스테이지별 선호 길이: 1~2는 짧게, 올라갈수록 길게. 후보가 없으면 전체에서
+  const korean = [...WORDS.rda, ...WORDS.plan, ...WORDS.agri];
+  const [lo, hi] = st <= 1 ? [2, 3] : st === 2 ? [2, 4] : st === 3 ? [3, 5] : st === 4 ? [3, 6] : st <= 6 ? [4, 8] : [5, 12];
+  let pool = korean.filter(w => w.length >= lo && w.length <= hi);
+  if (pool.length < 20) pool = korean;
+  return { word: pick(pool), kind: 'ko' };
 }
 function spawnBird(spec, boss = false) {
   const w = boss ? Math.min(W - 40, 40 + spec.word.length * 15) : 36 + [...spec.word].length * (spec.kind === 'en' ? 12 : 18);
-  const speed = (boss ? 16 : 30 + S.stage * 6) * rnd(0.9, 1.15);
+  const speed = (boss ? 16 : 24 + S.stage * 5) * rnd(0.9, 1.15);
   S.birds.push({ ...spec, boss, w, x: rnd(30 + w / 2, W - 30 - w / 2), y: boss ? 150 : rnd(130, 170), /* 풍선이 HUD에 가리지 않는 높이 */ vy: speed, flap: rnd(0, 6), state: 'fly', t: 0, dir: Math.random() < 0.5 ? 1 : -1 });
 }
 
@@ -227,11 +231,11 @@ function update(dt) {
     S.bossDone[S.stage] = true; spawnBird({ word: pick(WORDS.proverbs), kind: 'boss' }, true); sfx.boss(); toast('BOSS! 문장을 통째로 치세요', '#ff8a65');
   }
   // 스폰: 동시 마리 수 제한
-  const maxBirds = Math.min(7, 2 + Math.floor(S.stage / 2));
+  const maxBirds = Math.min(8, 3 + Math.floor(S.stage / 2));
   S.spawnAt -= dt * slow;
   if (S.spawnAt <= 0) {
     if (S.birds.filter(b => b.state === 'fly' && !b.boss).length < maxBirds) spawnBird(pickWord());
-    S.spawnAt = Math.max(0.9, 2.6 - S.stage * 0.2) * rnd(0.8, 1.2);
+    S.spawnAt = Math.max(0.7, 1.7 - S.stage * 0.12) * rnd(0.8, 1.2);
   }
   for (const b of S.birds) {
     b.flap += dt * 9; b.t += dt;
