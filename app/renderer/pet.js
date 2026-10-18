@@ -444,7 +444,7 @@ function sirenSettings() {
   bubble.querySelector('.choices').classList.add('wrap');
 }
 
-async function openGame() {
+async function openGame(kind = 'orchard') {
   interrupt();
   const c = await isak.getCoins();
   if (c.coins <= 0) {
@@ -452,10 +452,11 @@ async function openGame() {
     emote('think', 3500); say(`코인이 없어요 🪙<br><small>다음 코인까지 약 ${left}분 · 근무확인을 제때 누르면 +1</small>`, { ms: 4500 });
     return;
   }
-  isak.openGame();
+  isak.openGame(kind);
 }
 const menuActions = {
-  game: openGame,
+  game: () => openGame('orchard'),
+  typing: () => openGame('typing'),
   siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(),
@@ -632,9 +633,9 @@ isak.on('coin', ({ coins, cap, reason }) => {
   interrupt(); emote('cheer', 2600, { poke: 6 });
   say(reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
 });
-isak.on('game-result', ({ score, best, cleared }) => {
+isak.on('game-result', ({ kind, score, best, cleared }) => {
   interrupt();
-  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(`과수원을 지켰어요! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
+  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(kind === 'typing' ? `새들을 다 쫓았어요! ${score.toLocaleString()}점 📣` : `과수원을 지켰어요! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
   else if (best) { emote('best', 4000, { poke: 5 }); say(`최고 기록! ${score.toLocaleString()}점 👍`, { ms: 4000 }); }
   else { emote('hello', 3000, { poke: 3 }); say(`${score.toLocaleString()}점! 다음엔 더 잘할 수 있어요`, { ms: 3500 }); }
 });

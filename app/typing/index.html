@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'">
+<title>이삭이 타자게임</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* 입력창: 화면 아래 고정, 픽셀 테두리 */
+  #inputBox {
+    position: absolute; left: 24px; right: 24px; bottom: 22px; z-index: 15; display: none;
+  }
+  #inputBox.on { display: block; }
+  #typed {
+    width: 100%; padding: 10px 14px; font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-size: 22px; text-align: center;
+    background: #fffbe6; color: #2b3a2e; border: 4px solid #2b3a2e; box-shadow: 0 0 0 4px #fffbe6, 0 0 0 8px #2b3a2e; outline: none;
+  }
+  #typed.wrong { animation: shake .25s; border-color: #d7451d; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  #hint { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 8px; text-align: center; font-size: 13px; color: #fff; text-shadow: 1px 1px 0 #2b3a2e; min-height: 16px; }
+  .howto-typing { bottom: 14px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 14px; margin: 8px 0; text-align: left; }
+  .stat-grid b { color: #1d6b53; float: right; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="480" height="800"></canvas>
+
+  <div class="screen" id="intro">
+    <div class="title-box">
+      <div class="title">이삭이<br>타자게임</div>
+      <div class="subtitle">TYPE &amp; SHOUT</div>
+    </div>
+    <div class="press blink" id="pressStart">PRESS SPACE</div>
+    <div class="intro-info">
+      <div class="coins" id="introCoins"></div>
+      <div class="best" id="introBest"></div>
+    </div>
+    <div class="ranks" id="introRanks"></div>
+    <div class="howto howto-typing">새가 물고 온 단어를 치고 Enter · 땅에 닿으면 하트 -1 · 3분 버티면 클리어</div>
+  </div>
+
+  <div class="screen overlay" id="pause">
+    <div class="panel">
+      <div class="panel-title" id="pauseTitle">일시정지</div>
+      <div class="panel-text" id="pauseText">ESC로 계속</div>
+      <button class="btn" id="resumeBtn">계속하기</button>
+    </div>
+  </div>
+
+  <div class="screen overlay" id="result">
+    <div class="panel">
+      <div class="panel-title" id="resultTitle">GAME OVER</div>
+      <div class="score-line">SCORE <span id="resultScore">0</span></div>
+      <div class="panel-text" id="resultBest"></div>
+      <div class="stat-grid" id="resultStats"></div>
+      <button class="btn" id="retryBtn">다시 하기</button>
+      <button class="btn share" id="shareBtn">📸 점수 카드 복사·저장</button>
+      <button class="btn secondary" id="closeBtn">닫기</button>
+    </div>
+  </div>
+
+  <div id="inputBox">
+    <div id="hint"></div>
+    <input id="typed" type="text" autocomplete="off" spellcheck="false" placeholder="단어를 치고 Enter">
+  </div>
+
+  <button id="x" title="닫기">×</button>
+  <button id="mute" title="효과음 켜기/끄기 (M)">🔊</button>
+  <button id="bgm" title="배경음악 켜기/끄기 (B)">♪</button>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

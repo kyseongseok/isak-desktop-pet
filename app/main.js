@@ -33,6 +33,7 @@ function loadState() {
   const today = workDate();
   if (state.ot.date !== today) state.ot = { status: 'none', base: null, date: today };
   state.coins = Math.min(COIN_CAP, state.coins);
+  if (process.env.ISAK_COINS) state.coins = Math.min(COIN_CAP, +process.env.ISAK_COINS);   // 개발용: 코인 채우기
 }
 function saveState(partial = {}) {
   Object.assign(state, partial);
@@ -119,40 +120,57 @@ ipcMain.on('pet-dropped', () => {
 ipcMain.on('quit', () => app.quit());
 
 // ---------- 게임 창: 펫 창은 키보드를 못 받으므로 별도의 보통 창 ----------
+// 게임 목록: 폴더 이름 = 종류. 기록은 state.games[kind]에 따로 저장
+const GAMES = {
+  orchard: { title: '과수원을 지켜라', dir: 'game' },
+  typing: { title: '이삭이 타자게임', dir: 'typing' },
+};
 let gameWin = null;
-function openGame() {
+function openGame(kind = 'orchard') {
+  if (!GAMES[kind]) kind = 'orchard';
   if (gameWin) { gameWin.focus(); return; }
   const a = currentDisplay().workArea;
   const W = 480, H = 800;
   gameWin = new BrowserWindow({
     width: W, height: H, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
-    resizable: false, maximizable: false, fullscreenable: false, title: '과수원을 지켜라',
+    resizable: false, maximizable: false, fullscreenable: false, title: GAMES[kind].title,
     backgroundColor: '#9fd9ff', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'game', 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   gameWin.setMenuBarVisibility(false);
-  gameWin.loadFile(path.join(__dirname, 'game', 'index.html'));
+  gameWin.loadFile(path.join(__dirname, GAMES[kind].dir, 'index.html'), { query: { kind } });
   gameWin.on('closed', () => { gameWin = null; send('game-closed'); });
 }
-ipcMain.on('open-game', openGame);
+function gameRec(kind) {
+  if (!state.games) state.games = {};
+  if (!state.games[kind]) state.games[kind] = { best: kind === 'orchard' ? (state.gameBest || 0) : 0, history: kind === 'orchard' ? (state.gameHistory || []) : [] };
+  return state.games[kind];
+}
+ipcMain.on('open-game', (_e, kind) => openGame(kind));
+// 단어장: app/game/words/*.txt (한 줄에 하나). 샌드박스 렌더러는 파일을 못 읽으니 여기서 읽어 줌
+ipcMain.handle('get-words', () => {
+  const dir = path.join(__dirname, 'game', 'words'), out = {};
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.txt') || f === 'README.txt') continue;
+    out[f.replace('.txt', '')] = fs.readFileSync(path.join(dir, f), 'utf-8').split(/\r?\n/).map(w => w.trim()).filter(Boolean);
+  }
+  return out;
+});
 ipcMain.on('close-game', () => { if (gameWin) gameWin.close(); });
 ipcMain.on('game-result', (_e, r) => { send('game-result', r); });      // 결과를 펫에게 전달 (축하 리액션)
 ipcMain.on('alarm-stage', (_e, info) => { if (gameWin) gameWin.webContents.send('alarm', info); });   // 알람이 오면 게임 일시정지
-ipcMain.on('save-best', (_e, best) => saveState({ gameBest: Math.max(state.gameBest || 0, best) }));
-ipcMain.handle('get-best', () => state.gameBest || 0);
+ipcMain.on('save-best', (_e, { kind, best }) => { const g = gameRec(kind); g.best = Math.max(g.best, best); saveState(); });
+ipcMain.handle('get-best', (_e, kind) => gameRec(kind).best);
 // 최근 기록 20개 (점수·스테이지·클리어 여부·날짜)
-ipcMain.on('save-score', (_e, rec) => {
-  const hist = [rec, ...(state.gameHistory || [])].slice(0, 20);
-  saveState({ gameHistory: hist });
-});
-ipcMain.handle('get-history', () => state.gameHistory || []);
+ipcMain.on('save-score', (_e, { kind, rec }) => { const g = gameRec(kind); g.history = [rec, ...g.history].slice(0, 20); saveState(); });
+ipcMain.handle('get-history', (_e, kind) => gameRec(kind).history);
 // 점수 인증 카드: 클립보드에 복사하고, 원하면 PNG로 저장
 ipcMain.handle('share-card', async (_e, dataUrl) => {
   const img = nativeImage.createFromDataURL(dataUrl);
   clipboard.writeImage(img);
   const d = new Date(), stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   const r = await dialog.showSaveDialog(gameWin, {
-    title: '점수 카드 저장', defaultPath: path.join(app.getPath('downloads'), `과수원을지켜라_${stamp}.png`),
+    title: '점수 카드 저장', defaultPath: path.join(app.getPath('downloads'), `이삭이게임_${stamp}.png`),
     filters: [{ name: 'PNG 이미지', extensions: ['png'] }],
   });
   if (!r.canceled && r.filePath) fs.writeFileSync(r.filePath, img.toPNG());
@@ -222,7 +240,8 @@ function updateTray() {
   const ot = state.ot.status;
   const menu = Menu.buildFromTemplate([
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
-    { label: '🎮 [미니게임] 과수원을 지켜라', click: openGame },
+    { label: '🎮 [미니게임] 과수원을 지켜라', click: () => openGame('orchard') },
+    { label: '⌨️ [미니게임] 이삭이 타자게임', click: () => openGame('typing') },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },
@@ -272,7 +291,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyAutostart();
-  if (process.env.ISAK_OPEN_GAME) setTimeout(openGame, 1500);   // 개발용: 게임 창 바로 열기
+  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing)
 });
 app.on('window-all-closed', () => app.quit());
 app.on('second-instance', () => { if (win) win.show(); });
