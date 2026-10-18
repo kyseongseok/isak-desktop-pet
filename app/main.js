@@ -24,6 +24,7 @@ const defaultState = {
   coins: 5,                         // 처음 설치 시 체험용 5개
   coinProgressMs: 0,
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
+  sound: { theme: 'quiet', volume: 40 },   // 알람 소리: 조용히 / 클럽 / 앰뷸런스 / 경찰차
 };
 let state = { ...defaultState };
 function loadState() {
@@ -176,6 +177,17 @@ function updateTray() {
       { label: '작게', click: () => send('command', { type: 'size', value: 140 }) },
       { label: '보통', click: () => send('command', { type: 'size', value: 220 }) },
       { label: '크게', click: () => send('command', { type: 'size', value: 300 }) },
+    ] },
+    { label: '알람 소리', submenu: [
+      ...[['quiet', '🔕 조용히'], ['club', '🪩 클럽'], ['ambulance', '🚑 앰뷸런스'], ['police', '🚓 경찰차']].map(([id, label]) => ({
+        label, type: 'radio', checked: state.sound.theme === id,
+        click: () => { saveState({ sound: { ...state.sound, theme: id } }); send('command', { type: 'sound', value: { theme: id } }); } })),
+      { type: 'separator' },
+      ...[[20, '소리 작게'], [40, '소리 보통'], [70, '소리 크게']].map(([v, label]) => ({
+        label, type: 'radio', checked: state.sound.volume === v,
+        click: () => { saveState({ sound: { ...state.sound, volume: v } }); send('command', { type: 'sound', value: { volume: v } }); } })),
+      { type: 'separator' },
+      { label: '지금 테스트 (4초)', click: () => send('command', { type: 'siren-test' }) },
     ] },
     { label: '자동 행동 (걷기·딴짓)', type: 'checkbox', checked: state.autoplay,
       click: (item) => { saveState({ autoplay: item.checked }); send('command', { type: 'autoplay', value: item.checked }); } },

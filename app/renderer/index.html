@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="flash"></div>
 <div id="shadow"></div>
 <div id="pet"><img id="petImg" alt="이삭이" draggable="false"><div class="handle" title="끌어서 크기 조정"></div></div>
 <div id="bubble"></div>
@@ -19,10 +20,12 @@
   <button data-menu="resume" data-ot="excluded">▶ 복귀했어요</button>
   <button data-menu="finish" data-ot="active excluded">🏠 초과근무 종료</button>
   <hr>
+  <button data-menu="siren">🔔 알람 소리 설정</button>
   <button data-menu="resize">📏 크기 조정</button>
   <button data-menu="hide">🙈 10분 숨기기</button>
   <button data-menu="quit">✖ 종료</button>
 </div>
+<script src="siren.js"></script>
 <script src="pet.js"></script>
 </body>
 </html>

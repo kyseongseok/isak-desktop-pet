@@ -89,7 +89,7 @@ function endEmote() {
   setFrame('idle');
   s.nextAuto = performance.now() + 2500 + Math.random() * 3000;
 }
-function interrupt() { hush(); if (s.mode === 'emote') endEmote(); }
+function interrupt() { hush(); siren.stop(); if (s.mode === 'emote') endEmote(); }
 
 // 케어 메시지: [문구, 표정]
 const CARE = [
@@ -223,9 +223,12 @@ function otAlarm(stage) {
     say(`앗… ${dl} 마감이 지났어요 ㅠ<br>사유 적고 근무확인 눌러 주세요`, { ms: 0, choices: [
       { label: '지금 눌렀어요', onClick: otPressed } ] });
     isak.notify('이삭이', `${dl} 근무확인 마감이 지났어요. 사유 적고 눌러 주세요`);
+    siren.play(4);
+    setTimeout(() => siren.stop(), 20000);          // 초과 상태는 20초만 울리고 말풍선만 남김
     return;
   }
   const text = { 1: '근무확인 누를 시간이에요! 🔔', 2: '3분 남았어요! ⏳', 3: '1분 남았어요!! 🚨' }[stage];
+  siren.play(stage);
   emote('alarm', 0, { poke: 4 + stage });
   s.shake = stage;
   say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭해 주세요</small>`, { ms: 0, alarm: true });
@@ -418,7 +421,29 @@ pet.addEventListener('contextmenu', (e) => {
   menu.style.top = `${Math.max(0, Math.min(e.clientY, env.height - h - 8))}px`;
 });
 addEventListener('pointerdown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; });
+// 알람 소리 설정: 테마 → 볼륨, 고를 때마다 3초 미리 듣기
+const THEMES = [['quiet', '🔕 조용히'], ['club', '🪩 클럽'], ['ambulance', '🚑 앰뷸런스'], ['police', '🚓 경찰차']];
+function saveSound(partial) { siren.configure(partial); isak.saveState({ sound: { ...siren.settings } }); }
+function sirenSettings() {
+  interrupt();
+  const cur = (k, v) => siren.settings[k] === v ? ' ✓' : '';
+  const pickVolume = () => say('소리 크기', { ms: 0, choices: [
+    { label: `작게${cur('volume', 20)}`, onClick: () => { saveSound({ volume: 20 }); siren.preview(siren.settings.theme); done(); } },
+    { label: `보통${cur('volume', 40)}`, onClick: () => { saveSound({ volume: 40 }); siren.preview(siren.settings.theme); done(); } },
+    { label: `크게${cur('volume', 70)}`, onClick: () => { saveSound({ volume: 70 }); siren.preview(siren.settings.theme); done(); } },
+  ]});
+  const done = () => { const t = THEMES.find(x => x[0] === siren.settings.theme)[1];
+    say(`저장했어요 🔒 ${t} · 소리 ${siren.settings.volume}%<br><small>5분 전엔 작게, 가까워질수록 커져요</small>`, { ms: 4000 }); };
+  say('알람 소리 테마를 골라 주세요<br><small>고르면 3초 미리 들려드려요</small>', { ms: 0, choices:
+    THEMES.map(([id, label]) => ({ label: label + cur('theme', id), onClick: () => {
+      saveSound({ theme: id }); siren.preview(id);
+      if (id === 'quiet') { setTimeout(() => { siren.stop(); done(); }, 1200); } else pickVolume();
+    } })) });
+  bubble.querySelector('.choices').classList.add('wrap');
+}
+
 const menuActions = {
+  siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(),
 };
@@ -565,6 +590,7 @@ let resumedSession = false;
   const e = await isak.getEnv();
   const st = e.state;
   autoplay = st.autoplay;
+  if (st.sound) siren.configure(st.sound);
   setSize(st.size, false);
   applyEnv({ ...e, xRatio: st.xRatio });
   if (st.ot && st.ot.status) {              // 앱을 껐다 켜도 초과근무 상태 이어가기
@@ -597,4 +623,6 @@ isak.on('command', (c) => {
   else if (c.type === 'finish') otFinish();
   else if (c.type === 'size') setSize(c.value);
   else if (c.type === 'autoplay') autoplay = c.value;
+  else if (c.type === 'sound') { siren.configure(c.value); if (c.value.theme) siren.preview(c.value.theme); }
+  else if (c.type === 'siren-test') { siren.play(3); setTimeout(() => siren.stop(), 4000); }
 });

@@ -71,3 +71,20 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
 }
 #ctxStatus b { color: #1d6b53; }
 #ctxStatus.on { background: #effaf5; border-radius: 6px; border-bottom: 0; }
+
+/* 사이렌 색 레이어: 클릭이 통과함, 깜빡임은 초당 3회 이하·투명도 30% 안팎 */
+#flash { position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: 0; }
+#flash.ambulance { animation: amb .6s steps(1) infinite; }
+@keyframes amb { 0% { background: #ff2a2a; opacity: .32; } 50% { background: #ff2a2a; opacity: 0; } }
+#flash.police { animation: pol .9s steps(1) infinite; }
+@keyframes pol { 0% { background: #2a5bff; opacity: .34; } 33% { background: #ff2a2a; opacity: .34; } 66% { opacity: 0; } }
+#flash.club { animation: club 1.875s steps(1) infinite; }
+@keyframes club {
+  0% { background: #b23cff; opacity: .3; } 12% { opacity: 0; }
+  25% { background: #ff3c9e; opacity: .3; } 37% { opacity: 0; }
+  50% { background: #28e0d8; opacity: .3; } 62% { opacity: 0; }
+  75% { background: #ffd93c; opacity: .3; } 87% { opacity: 0; }
+}
+#flash.soft { animation-duration: 1.2s; filter: opacity(.45); }
+#bubble .choices.wrap { flex-wrap: wrap; }
+#bubble .choices.wrap button { flex: 1 1 45%; }
