@@ -222,7 +222,7 @@ function updateTray() {
   const ot = state.ot.status;
   const menu = Menu.buildFromTemplate([
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
-    { label: '🎮 과수원을 지켜라', click: openGame },
+    { label: '🎮 [미니게임] 과수원을 지켜라', click: openGame },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },
