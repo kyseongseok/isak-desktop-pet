@@ -177,11 +177,11 @@ ipcMain.handle('share-card', async (_e, dataUrl) => {
 });
 
 // ---------- 자리 비움 감지 ----------
-let wasAway = false;
+let wasAway = false, awayMax = 0;
 setInterval(() => {
   const idle = powerMonitor.getSystemIdleTime();
-  if (idle >= IDLE_AWAY_SEC) wasAway = true;
-  else if (wasAway) { wasAway = false; send('user-return', { awaySec: idle }); }
+  if (idle >= IDLE_AWAY_SEC) { wasAway = true; awayMax = Math.max(awayMax, idle); }
+  else if (wasAway) { wasAway = false; send('user-return', { awaySec: awayMax }); awayMax = 0; }
 }, 5000);
 powerMonitor.on('resume', () => send('user-return', { awaySec: IDLE_AWAY_SEC }));
 powerMonitor.on('unlock-screen', () => send('user-return', { awaySec: IDLE_AWAY_SEC }));
@@ -282,6 +282,7 @@ function applyAutostart() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') app.setAppUserModelId('kr.go.rda.isak-pet');   // 윈도우 토스트 알림에 필요
   loadState();
   createWindow();
   createTray();

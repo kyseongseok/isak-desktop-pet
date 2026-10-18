@@ -29,7 +29,7 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
@@ -37,12 +37,19 @@
       ],
       "icon": "app/renderer/img/idle.png"
     },
-    "portable": {
-      "artifactName": "이삭이-${version}.exe"
-    },
     "mac": {
       "target": "dir",
       "icon": "app/renderer/img/idle.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "artifactName": "이삭이-설치-${version}.exe",
+      "shortcutName": "이삭이"
     }
   }
 }

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>펫 로직 시뮬레이터</title>
+<link rel="stylesheet" href="../app/renderer/style.css">
+<style>body{background:#dfe9f3} #log{position:fixed;left:8px;top:8px;width:420px;max-height:95vh;overflow:auto;background:#fff;font:12px/1.5 monospace;padding:8px;border:1px solid #ccc;z-index:999;white-space:pre-wrap}</style>
+</head><body>
+<pre id="log">simulator ready</pre>
+<div id="flash"></div>
+<div id="shadow"></div>
+<div id="pet"><img id="petImg" alt="이삭이" draggable="false"><div class="handle" title="끌어서 크기 조정"></div></div>
+<div id="bubble"></div>
+<div id="ctxMenu">
+  <div id="ctxStatus"></div>
+  <button data-menu="ask" data-ot="none asked declined done">⏰ 초과근무 시작</button>
+  <button data-menu="checked" data-ot="active">⏰ 근무확인 눌렀어요</button>
+  <button data-menu="fixtime" data-ot="active">✏️ 누른 시각 고치기</button>
+  <button data-menu="exclude" data-ot="active">⏸ 제외시간 시작</button>
+  <button data-menu="resume" data-ot="excluded">▶ 복귀했어요</button>
+  <button data-menu="finish" data-ot="active excluded">🏠 초과근무 종료</button>
+  <hr>
+  <button data-menu="game">🎮 [미니게임] 과수원을 지켜라</button>
+  <button data-menu="typing">⌨️ [미니게임] 이삭이 타자게임</button>
+  <button data-menu="siren">🔔 알람 소리 설정</button>
+  <button data-menu="resize">📏 크기 조정</button>
+  <button data-menu="tutorial">📖 튜토리얼 다시 보기</button>
+  <button data-menu="hide">🙈 10분 숨기기</button>
+  <button data-menu="quit">✖ 종료</button>
+</div>
+
+<script>
+// ---------- 가짜 시계: Date 전체를 바꿔 끼움 ----------
+const RealDate = Date;
+let __now = new RealDate('2026-10-19T09:00:00+09:00').getTime();   // 월요일 09:00
+window.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [__now])); }
+  static now() { return __now; }
+};
+Date.prototype = RealDate.prototype;
+window.setTime = (str) => { __now = new RealDate(str.includes('T') ? str : str.replace(' ', 'T') + ':00+09:00').getTime(); };
+window.advance = (min) => { __now += min * 60000; };
+
+// ---------- 가짜 브리지 ----------
+window.__saved = []; window.__events = []; window.__handlers = {};
+window.__env = { width: 900, height: 600, isWorkday: true };
+window.__state = { size: 220, xRatio: 0.4, autoplay: false, tutorialDone: true, ot: { status: 'none', base: null, date: null, snoozeUntil: 0 }, sound: { theme: 'quiet', volume: 0 } };
+// 재시작 복원 테스트: sessionStorage에 넣어 두고 새로고침하면 그 상태로 시작
+try {
+  if (sessionStorage.simTime) setTime(sessionStorage.simTime);
+  if (sessionStorage.simWorkday) __env.isWorkday = sessionStorage.simWorkday === 'true';
+  if (sessionStorage.simState) Object.assign(__state, JSON.parse(sessionStorage.simState));
+} catch (e) {}
+window.isak = {
+  getEnv: async () => ({ ...__env, state: __state }),
+  saveState: (p) => { __saved.push(JSON.parse(JSON.stringify(p))); Object.assign(__state, p); },
+  setIgnoreMouse() {}, setOnTop(v) { __events.push(['onTop', v]); },
+  notify: (t, b) => __events.push(['notify', b]),
+  petDropped() {}, quit() {}, openGame(k) { __events.push(['openGame', k]); },
+  coinBonus: () => __events.push(['coinBonus']),
+  getCoins: async () => ({ coins: 3, cap: 5, daily: 3 }),
+  alarmStage: (i) => __events.push(['alarmStage', i.stage]),
+  on: (ch, cb) => { __handlers[ch] = cb; },
+};
+// AudioContext 없이도 돌게
+window.AudioContext = class { constructor() { this.state = 'running'; this.currentTime = 0; this.destination = {}; } resume() {} createGain() { return { gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {} }, connect() {} }; } createOscillator() { return { type: '', frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, start() {}, stop() {} }; } createBiquadFilter() { return { type: '', frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } createBuffer() { return { getChannelData: () => new Float32Array(10) }; } createBufferSource() { return { buffer: null, connect() {}, start() {}, stop() {} }; } };
+</script>
+<script src="../app/renderer/siren.js"></script>
+<script src="../app/renderer/pet.js"></script>
+<script>
+// ---------- 시나리오 도우미 ----------
+const L = [];
+const log = (...a) => { L.push(a.join(' ')); document.getElementById('log').textContent = L.join('\n'); };
+const btext = () => bubble.style.display === 'block' ? bubble.innerText.replace(/\s+/g, ' ').trim() : '(없음)';
+const buttons = () => [...bubble.querySelectorAll('.choices button')].map(b => b.textContent);
+const click = (label) => { const b = [...bubble.querySelectorAll('.choices button')].find(b => b.textContent.startsWith(label)); if (!b) throw new Error(`버튼 없음: ${label} / 있는 것: ${buttons().join(',')} / 말풍선: ${btext()}`); b.click(); };
+const snap = () => `${OT.status}${OT.pendingPress ? '(대기)' : ''} base=${OT.base ? fmt(OT.base) : '-'} stage=${OT.stage}${OT.planAt ? ' plan=' + fmt(OT.planAt) : ''}`;
+// 분 단위로 시계를 돌리며 매 분 otTick 호출. 알람이 뜬 시각을 기록
+const run = (minutes) => { const fired = []; for (let i = 0; i < minutes; i++) { advance(1); const before = OT.stage; otTick(); if (OT.stage !== before && OT.stage > 0) fired.push(`${fmt(Date.now())}→stage${OT.stage}`); } return fired; };
+const reset = (timeStr, workday = true) => { hush(); __env.isWorkday = workday; env.isWorkday = workday; setTime(timeStr); otReset(); OT.snoozeUntil = 0; __events.length = 0; bootDone = true; };
+const expect = (name, cond, detail = '') => { log((cond ? '✅ ' : '❌ ') + name + (detail ? '  — ' + detail : '')); if (!cond) window.__fail = (window.__fail || 0) + 1; };
+window.results = () => ({ fails: window.__fail || 0, log: L });
+</script>
+</body></html>

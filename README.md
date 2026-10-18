@@ -31,7 +31,7 @@ node node_modules/electron/install.js
 
 ## 윈도우 exe 만들기
 
-- **GitHub Actions**: 저장소에 올린 뒤 Actions → build-win → Run workflow. 결과물은 Artifacts의 `이삭이-x.y.z.exe` (포터블, 설치 불필요).
+- **GitHub Actions**: 저장소에 올린 뒤 Actions → build-win → Run workflow. 결과물은 Artifacts의 `이삭이-설치-x.y.z.exe` (사용자 단위 설치본, 관리자 권한 불필요).
 - **윈도우 PC/VM에서 직접**: `npm install` 후 `npm run build:win` → `dist/` 폴더.
 
 ## 저장되는 상태
