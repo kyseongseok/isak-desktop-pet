@@ -180,7 +180,7 @@ function applyItem(name) {
   sfx.item();
   const now = S.t;
   if (name === 'sprout') { if (S.hearts < MAX_HEARTS) { S.hearts++; toast('하트 +1 💚'); } else { S.score += 50; toast('하트 가득! +50'); } return; }
-  if (name === 'umbrella') { S.fx.shield = 3; toast('우산! 3번 막아요 ☂'); return; }
+  if (name === 'umbrella') { S.fx.shield = 2; toast('우산! 2번 막아요 ☂'); return; }
   S.fx[name] = now + ITEMS[name].dur;
   toast({ lightning: '번개! 빨라졌어요 ⚡', golden_ear: '점수 2배! ⭐', magnet: '자석! 과일이 끌려와요 🧲', turtle: '느리게~ 🐢' }[name]);
 }
