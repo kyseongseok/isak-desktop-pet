@@ -33,7 +33,7 @@ function loadState() {
   const today = workDate();
   if (state.ot.date !== today) state.ot = { status: 'none', base: null, date: today };
   state.coins = Math.min(COIN_CAP, state.coins);
-  if (process.env.ISAK_COINS) state.coins = Math.min(COIN_CAP, +process.env.ISAK_COINS);   // 개발용: 코인 채우기
+  if (process.env.ISAK_COINS) { state.coins = Math.min(COIN_CAP, +process.env.ISAK_COINS); saveState(); }   // 개발용: 코인 채우기
 }
 function saveState(partial = {}) {
   Object.assign(state, partial);
