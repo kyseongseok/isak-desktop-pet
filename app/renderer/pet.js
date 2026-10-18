@@ -140,12 +140,24 @@ function startWalk() {
 // ---------- 초과근무 로직 ----------
 // 규칙: 기준 시각(마지막 근무확인) + 60분 = 마감, 마감 5·3·1분 전 알림, 지나면 초과 안내
 // 일찍 눌러도 누른 시각이 새 기준, 제외시간 후 복귀하면 복귀 시 근무확인 누른 시각이 새 기준
-const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0 };
+const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: new Date().toDateString() };
+const STALE_MS = 90 * MIN;            // 마감 후 이만큼 응답이 없으면 퇴근한 것으로 보고 알람을 끔
 const deadline = () => OT.base + 60 * MIN;
-function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: new Date().toDateString() } }); }
+function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date } }); }
+function otReset() {
+  OT.status = 'none'; OT.base = null; OT.stage = 0; OT.pendingPress = false; OT.snoozeUntil = 0;
+  OT.date = new Date().toDateString(); otSave();
+}
 
 function otTick() {
   const t = Date.now();
+  // 앱을 켜 둔 채 날짜가 바뀌면(밤새 켜 둠, 절전 후 복귀) 어제 기록은 버리고 새로 시작
+  if (OT.date !== new Date().toDateString()) { interrupt(); otReset(); }
+  // 마감이 한참 지났는데 응답이 없으면 퇴근한 것으로 보고 조용히 종료 (어제 알람이 아침까지 남지 않게)
+  if (OT.status === 'active' && !OT.pendingPress && t - deadline() > STALE_MS) {
+    OT.status = 'done'; otSave(); interrupt();
+    say('한참 응답이 없어서 초과근무 알람을 껐어요 🙂<br><small>다시 하려면 우클릭 → 초과근무 시작</small>', { ms: 8000 });
+  }
   if (OT.status === 'none' && t >= OT.snoozeUntil && (!env.isWorkday || minuteOfDay(t) >= ASK_AT)) otAsk();
   if (OT.status !== 'active' || OT.pendingPress) return;
   const remain = deadline() - t;
@@ -553,8 +565,9 @@ function applyEnv(e) {
   setSize(st.size, false);
   applyEnv({ ...e, xRatio: st.xRatio });
   if (st.ot && st.ot.status) {              // 앱을 껐다 켜도 초과근무 상태 이어가기
-    OT.status = st.ot.status; OT.base = st.ot.base;
+    OT.status = st.ot.status; OT.base = st.ot.base; OT.date = st.ot.date || OT.date;
     if (OT.status === 'asked') OT.status = 'none';
+    if (OT.status === 'active' && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 오래된 초과근무는 이어가지 않음
   }
   requestAnimationFrame(tick);
   setTimeout(() => { if (!bubbleBusy()) actions.hello(); }, 600);

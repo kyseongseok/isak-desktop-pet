@@ -123,6 +123,13 @@ setInterval(() => {
 powerMonitor.on('resume', () => send('user-return', { awaySec: IDLE_AWAY_SEC }));
 powerMonitor.on('unlock-screen', () => send('user-return', { awaySec: IDLE_AWAY_SEC }));
 
+// ---------- 날짜가 바뀌면 평일/휴일 정보를 다시 보냄 ----------
+let lastDate = new Date().toDateString();
+setInterval(() => {
+  const d = new Date().toDateString();
+  if (d !== lastDate) { lastDate = d; sendEnv(); updateTray(); }
+}, 60 * 1000);
+
 // ---------- 코인: 앱이 켜져 있는 시간 2시간마다 1개, 최대 5개 ----------
 setInterval(() => {
   if (state.coins >= COIN_CAP) { state.coinProgressMs = 0; return; }
