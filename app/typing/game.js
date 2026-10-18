@@ -164,7 +164,7 @@ function pickWord() {
 }
 function spawnBird(spec, boss = false) {
   const w = boss ? Math.min(W - 40, 40 + spec.word.length * 15) : 36 + [...spec.word].length * (spec.kind === 'en' ? 12 : 18);
-  const speed = (boss ? 17 : 27 + S.stage * 6) * rnd(0.9, 1.15);
+  const speed = (boss ? 18 : 30 + S.stage * 6) * rnd(0.9, 1.15);
   S.birds.push({ ...spec, boss, w, x: rnd(30 + w / 2, W - 30 - w / 2), y: boss ? 150 : rnd(130, 170), /* 풍선이 HUD에 가리지 않는 높이 */ vy: speed, flap: rnd(0, 6), state: 'fly', t: 0, dir: Math.random() < 0.5 ? 1 : -1 });
 }
 
@@ -235,7 +235,7 @@ function update(dt) {
   S.spawnAt -= dt * slow;
   if (S.spawnAt <= 0) {
     if (S.birds.filter(b => b.state === 'fly' && !b.boss).length < maxBirds) spawnBird(pickWord());
-    S.spawnAt = Math.max(0.6, 1.45 - S.stage * 0.12) * rnd(0.8, 1.2);
+    S.spawnAt = Math.max(0.55, 1.25 - S.stage * 0.11) * rnd(0.8, 1.2);
   }
   for (const b of S.birds) {
     b.flap += dt * 9; b.t += dt;
