@@ -140,19 +140,21 @@ function startWalk() {
 // ---------- 초과근무 로직 ----------
 // 규칙: 기준 시각(마지막 근무확인) + 60분 = 마감, 마감 5·3·1분 전 알림, 지나면 초과 안내
 // 일찍 눌러도 누른 시각이 새 기준, 제외시간 후 복귀하면 복귀 시 근무확인 누른 시각이 새 기준
-const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: new Date().toDateString() };
+// '근무일'은 새벽 5시에 바뀜: 자정 넘겨 일해도 같은 날의 초과근무로 이어짐
+const workDate = (t = Date.now()) => new Date(t - 5 * 60 * MIN).toDateString();
+const OT = { status: 'none', base: null, stage: 0, pendingPress: false, snoozeUntil: 0, date: workDate() };
 const STALE_MS = 90 * MIN;            // 마감 후 이만큼 응답이 없으면 퇴근한 것으로 보고 알람을 끔
 const deadline = () => OT.base + 60 * MIN;
 function otSave() { isak.saveState({ ot: { status: OT.status, base: OT.base, date: OT.date } }); }
 function otReset() {
   OT.status = 'none'; OT.base = null; OT.stage = 0; OT.pendingPress = false; OT.snoozeUntil = 0;
-  OT.date = new Date().toDateString(); otSave();
+  OT.date = workDate(); otSave();
 }
 
 function otTick() {
   const t = Date.now();
-  // 앱을 켜 둔 채 날짜가 바뀌면(밤새 켜 둠, 절전 후 복귀) 어제 기록은 버리고 새로 시작
-  if (OT.date !== new Date().toDateString()) { interrupt(); otReset(); }
+  // 앱을 켜 둔 채 근무일이 바뀌면(새벽 5시 지남) 어제 기록은 버리고 새로 시작
+  if (OT.date !== workDate()) { interrupt(); otReset(); }
   // 마감이 한참 지났는데 응답이 없으면 퇴근한 것으로 보고 조용히 종료 (어제 알람이 아침까지 남지 않게)
   if (OT.status === 'active' && !OT.pendingPress && t - deadline() > STALE_MS) {
     OT.status = 'done'; otSave(); interrupt();
@@ -558,6 +560,7 @@ function applyEnv(e) {
   s.x = Math.max(SIZE * 0.32, Math.min(env.width - SIZE * 0.32, s.x));
   if (s.mode !== 'fly' && s.mode !== 'drag') s.y = ground();
 }
+let resumedSession = false;
 (async () => {
   const e = await isak.getEnv();
   const st = e.state;
@@ -567,10 +570,19 @@ function applyEnv(e) {
   if (st.ot && st.ot.status) {              // 앱을 껐다 켜도 초과근무 상태 이어가기
     OT.status = st.ot.status; OT.base = st.ot.base; OT.date = st.ot.date || OT.date;
     if (OT.status === 'asked') OT.status = 'none';
-    if (OT.status === 'active' && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 오래된 초과근무는 이어가지 않음
+    if (OT.date !== workDate()) otReset();                                                 // 다른 근무일의 기록은 버림
+    else if (OT.status === 'active' && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 마감이 한참 지난 기록은 이어가지 않음
+    else if (OT.status === 'active' || OT.status === 'excluded') resumedSession = true;
   }
   requestAnimationFrame(tick);
-  setTimeout(() => { if (!bubbleBusy()) actions.hello(); }, 600);
+  setTimeout(() => {
+    if (bubbleBusy()) return;
+    if (resumedSession && OT.status === 'active') {       // 재부팅·재시작 뒤 이어가기
+      emote('hello', 3000, { poke: 3 }); say(`다시 켜졌네요! 초과근무 이어서 할게요 🙂<br>${nextInfo()}`, { ms: 6000 });
+    } else if (resumedSession) {
+      emote('sleep', 0); say('제외시간 중이었죠? 돌아오셨으면 저를 클릭해 주세요', { ms: 0, choices: [{ label: '복귀했어요', onClick: otResume }] });
+    } else actions.hello();
+  }, 600);
 })();
 
 isak.on('env', (e) => applyEnv(e));

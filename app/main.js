@@ -13,6 +13,8 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 // ---------- 상태 저장 (userData/state.json) ----------
 const statePath = () => path.join(app.getPath('userData'), 'state.json');
+// '근무일'은 새벽 5시에 바뀜 (자정 넘겨 일해도 같은 날)
+const workDate = (t = Date.now()) => new Date(t - 5 * 60 * 60 * 1000).toDateString();
 const defaultState = {
   size: 220,
   xRatio: 0.4,                      // 모니터 너비 대비 펫 위치
@@ -26,7 +28,7 @@ const defaultState = {
 let state = { ...defaultState };
 function loadState() {
   try { state = { ...defaultState, ...JSON.parse(fs.readFileSync(statePath(), 'utf-8')) }; } catch (e) {}
-  const today = new Date().toDateString();
+  const today = workDate();
   if (state.ot.date !== today) state.ot = { status: 'none', base: null, date: today };
 }
 function saveState(partial = {}) {
@@ -124,9 +126,9 @@ powerMonitor.on('resume', () => send('user-return', { awaySec: IDLE_AWAY_SEC }))
 powerMonitor.on('unlock-screen', () => send('user-return', { awaySec: IDLE_AWAY_SEC }));
 
 // ---------- 날짜가 바뀌면 평일/휴일 정보를 다시 보냄 ----------
-let lastDate = new Date().toDateString();
+let lastDate = workDate();
 setInterval(() => {
-  const d = new Date().toDateString();
+  const d = workDate();
   if (d !== lastDate) { lastDate = d; sendEnv(); updateTray(); }
 }, 60 * 1000);
 
