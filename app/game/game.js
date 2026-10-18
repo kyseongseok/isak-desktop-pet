@@ -59,7 +59,7 @@ const sfx = (() => {
 // ---------- 배경음악 (music/bgm.ogg 또는 bgm.mp3가 있을 때만) ----------
 const bgm = (() => {
   let audio = null, on = true, available = false;
-  for (const f of ['music/bgm.ogg', 'music/bgm.mp3']) {
+  for (const f of ['music/bgm.m4a', 'music/bgm.ogg', 'music/bgm.mp3']) {
     if (audio) break;
     const a = new Audio(f); a.loop = true; a.volume = 0.18;
     a.addEventListener('canplaythrough', () => { available = true; }, { once: true });
