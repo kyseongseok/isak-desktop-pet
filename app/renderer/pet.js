@@ -806,7 +806,6 @@ function tick(now) {
   }
 
   if (s.mode === 'emote' && now > s.emoteUntil) endEmote();
-  otTick(); focusTick();
 
   if (s.mode === 'idle') {
     if (now > s.nextBlink) { s.blinkUntil = now + 130; s.nextBlink = now + 2200 + Math.random() * 3500; }
@@ -859,8 +858,12 @@ function tick(now) {
     bubble.style.left = `${Math.max(bw, Math.min(env.width - bw, s.x))}px`;
     bubble.style.top = `${Math.max(bubble.offsetHeight + 12, s.y - SIZE * 0.92 - hop)}px`;
   }
-  requestAnimationFrame(tick);
 }
+function loop(now) { tick(now); requestAnimationFrame(loop); }
+// 알람·집중 타이머 체크는 그리기 루프와 따로 1초마다 (창이 가려져 그리기가 멈춰도 알람은 울려야 함)
+setInterval(() => { otTick(); focusTick(); }, 1000);
+// 그리기 루프가 0.5초 넘게 멈추면 타이머로 대신 돌림 (가려진 창에서 requestAnimationFrame이 서는 경우 대비)
+setInterval(() => { const now = performance.now(); if (now - last > 500) tick(now); }, 250);
 
 // 바탕화면 아이콘 충돌 (obstacles가 비어 있으면 아무 일도 없음)
 function bounceOffObstacles() {
@@ -905,7 +908,7 @@ let resumedSession = false;
     else if (OT.status === 'active' && OT.base && !OT.pendingPress && Date.now() - deadline() > STALE_MS) OT.status = 'done';   // 마감이 한참 지난 기록은 이어가지 않음
     else if (OT.status === 'active' || OT.status === 'excluded') resumedSession = true;
   }
-  requestAnimationFrame(tick);
+  requestAnimationFrame(loop);
   setTimeout(() => {
     bootDone = true;
     if (!st.tutorialDone) { tutorial.start(); return; }   // 처음 설치: 안내가 가장 먼저

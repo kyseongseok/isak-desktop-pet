@@ -11,6 +11,11 @@ const COIN_DAILY = 3;             // 매 근무일 시작 때 이만큼은 채�
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
+// 윈도우: 크로미움은 다른 창에 완전히 덮인 창을 '가려짐'으로 보고 그리기(requestAnimationFrame)를 멈춤.
+// 투명 전체화면 오버레이인 이삭이 창은 최대화된 창 하나에 늘 덮이므로 이 판정을 끔 (안 끄면 걷기·클릭 반응·알람이 멈춤)
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
 // ---------- 상태 저장 (userData/state.json) ----------
 const statePath = () => path.join(app.getPath('userData'), 'state.json');
 // '근무일'은 새벽 5시에 바뀜 (자정 넘겨 일해도 같은 날)
