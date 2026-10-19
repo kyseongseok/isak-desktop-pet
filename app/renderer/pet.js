@@ -535,6 +535,11 @@ pet.addEventListener('contextmenu', (e) => {
   menu.style.top = `${Math.max(0, Math.min(e.clientY, env.height - h - 8))}px`;
 });
 addEventListener('pointerdown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; });
+// 바깥 클릭은 아래 창으로 통과돼 여기 닿지 않으므로, 마우스가 메뉴를 벗어나 0.7초 지나면 닫음
+let menuLeaveTimer = null;
+menu.addEventListener('mouseleave', () => { clearTimeout(menuLeaveTimer); menuLeaveTimer = setTimeout(() => { menu.style.display = 'none'; }, 700); });
+menu.addEventListener('mouseenter', () => clearTimeout(menuLeaveTimer));
+pet.addEventListener('mouseenter', () => clearTimeout(menuLeaveTimer));
 // 알람 소리 설정: 테마 → 볼륨, 고를 때마다 3초 미리 듣기
 const THEMES = [['quiet', '🔕 조용히'], ['club', '🪩 클럽'], ['ambulance', '🚑 앰뷸런스'], ['police', '🚓 경찰차']];
 function saveSound(partial) { siren.configure(partial); isak.saveState({ sound: { ...siren.settings } }); }
