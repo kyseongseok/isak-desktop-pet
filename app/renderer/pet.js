@@ -240,7 +240,7 @@ function otWait(planAt) {
   OT.status = 'active'; OT.base = null; OT.stage = 0; OT.pendingPress = true; OT.planAt = planAt; OT.planReminded = false; otSave();
   interrupt();
   emote('best', 3000, { poke: 3 });
-  say(`알겠어요! 근무확인을 누르면 <b>저를 클릭하거나 아래 버튼</b>을 눌러 주세요<br><small>그 시각부터 1시간씩 셀게요${planAt ? ` · ${fmt(planAt)}에 한 번 여쭤볼게요` : ''}</small>`, { ms: 0, choices: [
+  say(`알겠어요! 근무확인을 누르면 <b>저를 클릭하거나 아래 버튼</b>을 눌러 주세요<br><small>그 시각부터 1시간씩 셀게요${planAt ? ` · <b>${fmt(planAt)}</b>에 "누르셨어요?" 하고 여쭤볼게요` : ''}</small>`, { ms: 0, choices: [
     { label: '근무확인 눌렀어요', onClick: otPressed },
     { label: '알겠어요', secondary: true, onClick: interrupt },
   ]});
@@ -256,7 +256,7 @@ function otChooseBase() {
     { label: `정시 기본 (${fmt(defaultBase())})`, onClick: () => otStart(defaultBase()) },
     { label: '방금 눌렀어요', onClick: () => otStart(Date.now()) },
     { label: '시각 입력', secondary: true, onClick: () =>
-        askTime('근무확인을 누른 시각을 알려 주세요', Date.now(), otStart, () => otAsk()) },
+        askTime('근무확인을 누른 시각을 알려 주세요', Date.now(), otStartOrPlan, () => otAsk()) },
     { label: '← 돌아가기', secondary: true, onClick: () => otAsk() },
   ]});
 }
@@ -297,6 +297,11 @@ function askTime(html, defMs, cb, onCancel = interrupt) {
 
 const nextInfo = () => `다음 마감 <b>${fmt(deadline())}</b> · ${fmt(deadline() - 5 * MIN)}에 알려드릴게요 ⏰`;
 
+// 누른 시각으로 미래를 넣으면 "그때 누를 예정"으로 보고, 그 시각에 한 번 물어봄 (기준은 실제로 누른 뒤에 잡힘)
+function otStartOrPlan(ms) {
+  if (ms > Date.now() + 30 * 1000) { otWait(ms); return; }
+  otStart(ms);
+}
 function otStart(base) {
   OT.status = 'active'; OT.base = base; OT.stage = 0; OT.pendingPress = false; otSave();
   interrupt();
@@ -371,6 +376,7 @@ function otPressed() {
 function otFixTime() {
   if (OT.status !== 'active' || !OT.base) { say('아직 기준 시각이 없어요. 근무확인을 누르면 저를 클릭해 주세요', { ms: 3000 }); return; }
   askTime('실제로 근무확인을 누른 시각을 알려 주세요', OT.base, (ms) => {
+    if (ms > Date.now() + 30 * 1000) { otWait(ms); return; }       // 미래 시각 = 그때 누를 예정
     OT.base = ms; OT.stage = 0; OT.pendingPress = false; otSave();
     interrupt(); say(`기준 시각을 ${fmt(ms)}로 고쳤어요<br>${nextInfo()}`, { ms: 4500 });
   });
