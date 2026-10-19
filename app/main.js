@@ -21,6 +21,8 @@ const defaultState = {
   displayId: null,
   autoplay: true,
   hourlyEvery: 2,                   // 정시 스트레칭 알림 간격(시간), 0이면 끔
+  focusMinutes: 50,                 // 집중 타이머 기본 길이
+  focusOnTop: false,                // 집중 중 이삭이를 항상 위에 둘지
   autostart: true,
   coins: 5,                         // 처음 설치 시 체험용 5개
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
@@ -224,7 +226,7 @@ function addCoin(reason) {
   updateTray();
   return true;
 }
-ipcMain.on('coin-bonus', () => addCoin('bonus'));
+ipcMain.on('coin-bonus', (_e, reason) => addCoin(reason || 'bonus'));
 ipcMain.handle('spend-coin', () => {
   if (state.coins <= 0) return { ok: false, coins: 0, cap: COIN_CAP };
   state.coins -= 1; saveState(); updateTray();
@@ -280,6 +282,9 @@ function updateTray() {
       { label: '알람 흐름 테스트 (5·3·1분 전·초과, 1분)', click: () => send('command', { type: 'alarm-test' }) },
     ] },
     { label: '튜토리얼 다시 보기', click: () => send('command', { type: 'tutorial' }) },
+    { label: '⏱ 집중 타이머 시작', click: () => send('command', { type: 'focus-start' }) },
+    { label: '집중 중 항상 위에 두기', type: 'checkbox', checked: !!state.focusOnTop,
+      click: (item) => { saveState({ focusOnTop: item.checked }); send('command', { type: 'focus-ontop', value: item.checked }); } },
     { label: '정시 스트레칭 알림', submenu: [[0, '끔'], [1, '1시간마다'], [2, '2시간마다'], [3, '3시간마다']].map(([n, label]) => ({
       label, type: 'radio', checked: (state.hourlyEvery ?? 2) === n,
       click: () => { saveState({ hourlyEvery: n }); send('command', { type: 'hourly', value: n }); } })) },

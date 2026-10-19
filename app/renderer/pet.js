@@ -120,7 +120,7 @@ const HOURLY = [
   ['잠깐 일어나서 두어 걸음 걸어 볼까요? 🚶', 'run'],
 ];
 function hourlyTick() {
-  if (!hourlyEvery || tutorial.active || bubbleBusy()) return;
+  if (!hourlyEvery || tutorial.active || bubbleBusy() || FOCUS.status !== 'off') return;
   const d = new Date(), h = d.getHours();
   if (d.getMinutes() !== 0 || h < 9 || h > 20 || h % hourlyEvery !== 0 || lastHourly === h) return;
   lastHourly = h;
@@ -133,7 +133,7 @@ const scene = () => 15000 + Math.random() * 10000;
 const actions = {
   hello() { emote('hello', 2500, { poke: 3 }); s.tiltTarget = 0.12; say('안녕하세요! 오늘도 파이팅 🌾'); },
   care() {
-    if (performance.now() - lastCare < 25 * MIN) return;     // 너무 자주 말하지 않기
+    if (performance.now() - lastCare < 25 * MIN || FOCUS.status !== 'off') return;     // 너무 자주 말하지 않기
     lastCare = performance.now();
     const [text, face] = CARE[Math.floor(Math.random() * CARE.length)];
     emote(face, 4500, { poke: 3 }); say(text, { ms: 4500 });
@@ -381,6 +381,7 @@ function otFinish() {
 // 자리 비움 후 복귀 (메인 프로세스가 10분 이상 입력 없음 → 입력 재개를 감지)
 function onUserReturn({ awaySec }) {
   if (tutorial.active) return;
+  if (FOCUS.status === 'focus' && awaySec >= AWAY_REASK_SEC) { focusPause(awaySec * 1000); return; }
   if (OT.status === 'asked') {
     otAsk(minuteOfDay(Date.now()) >= 18 * 60 ? '식사 맛있게 하셨어요? 🍚<br>' : '다시 오셨네요! ');
   } else if (awaySec >= AWAY_REASK_SEC && !bubbleBusy()) {
@@ -426,6 +427,7 @@ const tutorial = (() => {
 let drag = null;
 pet.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || resizing) return;
+  if (FOCUS.status === 'focus' || FOCUS.status === 'paused') { poke(4); focusBubble(); return; }   // 집중 중엔 던지기 없음
   pet.setPointerCapture(e.pointerId);
   drag = { startX: e.clientX, startY: e.clientY, offX: s.x - e.clientX, offY: s.y - e.clientY,
            moved: false, hist: [{ x: e.clientX, y: e.clientY, t: performance.now() }] };
@@ -524,6 +526,97 @@ handle.addEventListener('pointermove', (e) => {
 });
 handle.addEventListener('pointerup', () => { hDrag = null; });
 
+// ---------- 집중 타이머 (Time Timer 원판 + 뽀모도로) ----------
+// 집중 중엔 걷기·딴짓·케어·정시 알림·던지기 멈춤. 근무확인 알람만 그대로. 창은 평소대로 뒤에 (설정으로 항상 위)
+const FOCUS = { status: 'off', endAt: 0, total: 0, remain: 0, minutesSet: 50, onTop: false, sessions: 0, minutes: 0, coinGiven: false, lastTickMin: -1 };
+const ring = document.getElementById('ring');
+const focusRemainMin = () => Math.max(0, Math.ceil((FOCUS.status === 'paused' ? FOCUS.remain : FOCUS.endAt - Date.now()) / MIN));
+const breakFor = (m) => (m >= 45 ? 10 : 5);
+function focusSave() { isak.saveState({ focusMinutes: FOCUS.minutesSet, focus: { date: workDate(), sessions: FOCUS.sessions, minutes: FOCUS.minutes, coinGiven: FOCUS.coinGiven } }); }
+
+function focusChoose() {
+  interrupt();
+  emote('think', 0, { poke: 2 });
+  say(`집중 타이머 ⏱ 몇 분 할까요?<br><small>끝나면 ${breakFor(FOCUS.minutesSet)}분 쉬고, 집중 중엔 조용히 있을게요</small>`, { ms: 0, choices: [
+    { label: `${FOCUS.minutesSet}분 시작`, onClick: () => focusStart(FOCUS.minutesSet) },
+    { label: '25분', secondary: true, onClick: () => focusStart(25) },
+    { label: '45분', secondary: true, onClick: () => focusStart(45) },
+    { label: '직접 설정', secondary: true, onClick: focusPickMinutes },
+    { label: '취소', secondary: true, onClick: interrupt },
+  ]});
+  bubble.querySelector('.choices').classList.add('wrap');
+}
+function focusPickMinutes() {
+  let m = FOCUS.minutesSet;
+  say('집중 시간 (분)', { ms: 0, choices: [
+    { label: '시작', onClick: () => focusStart(m) },
+    { label: '취소', secondary: true, onClick: interrupt },
+  ]});
+  const box = document.createElement('div');
+  box.className = 'timepick';
+  box.innerHTML = `<div class="tp-col"><button data-d="5">▲</button><div class="tp-m">${m}</div><button data-d="-5">▼</button></div><div class="tp-side"><div class="tp-rel">분</div></div>`;
+  box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); m = Math.max(5, Math.min(180, m + (+b.dataset.d))); box.querySelector('.tp-m').textContent = m; });
+  bubble.insertBefore(box, bubble.querySelector('.choices'));
+}
+function focusStart(minutes) {
+  FOCUS.minutesSet = minutes; FOCUS.status = 'focus'; FOCUS.total = minutes * MIN; FOCUS.endAt = Date.now() + FOCUS.total; FOCUS.lastTickMin = -1;
+  focusSave(); interrupt();
+  if (s.mode === 'walk') s.mode = 'idle';
+  emote('research', 0);                       // 집중 포즈로 조용히
+  ring.hidden = false;
+  say(`${minutes}분 집중 시작! 조용히 있을게요 🤫<br><small>클릭하면 남은 시간 · 일시정지</small>`, { ms: 3500 });
+  if (FOCUS.onTop) setTimeout(() => isak.setOnTop('alarm'), 3600);
+}
+function focusPause(giveBackMs = 0) {
+  if (FOCUS.status !== 'focus') return;
+  FOCUS.remain = Math.max(0, FOCUS.endAt - Date.now()) + giveBackMs;   // 자리 비운 시간은 집중으로 안 세고 돌려줌
+  FOCUS.status = 'paused'; interrupt(); isak.setOnTop(false);
+  emote('think', 0);
+  say(`${giveBackMs ? '자리를 비우셨네요. ' : ''}집중을 잠시 멈췄어요 (${focusRemainMin()}분 남음)`, { ms: 0, choices: [
+    { label: '이어서', onClick: focusResume }, { label: '그만', secondary: true, onClick: () => focusStop(true) } ] });
+}
+function focusResume() { FOCUS.status = 'focus'; FOCUS.endAt = Date.now() + FOCUS.remain; interrupt(); emote('research', 0); say('다시 집중! 💪', { ms: 2000 }); if (FOCUS.onTop) setTimeout(() => isak.setOnTop('alarm'), 2100); }
+function focusStop(quiet = false) {
+  FOCUS.status = 'off'; ring.hidden = true; interrupt(); isak.setOnTop(false);
+  if (!quiet) return;
+  emote('hello', 2500); say('집중 타이머를 껐어요', { ms: 2500 });
+}
+function focusBubble() {
+  if (FOCUS.status === 'paused') return focusPause();
+  if (FOCUS.status === 'break') { interrupt(); say(`휴식 중 ☕ ${focusRemainMin()}분 남음`, { ms: 0, choices: [{ label: '바로 다시 집중', onClick: () => focusStart(FOCUS.minutesSet) }, { label: '오늘은 그만', secondary: true, onClick: () => focusStop(true) }] }); return; }
+  interrupt(); emote('research', 0);
+  say(`집중 중 ⏱ ${focusRemainMin()}분 남음`, { ms: 0, choices: [
+    { label: '일시정지', onClick: () => focusPause() }, { label: '그만', secondary: true, onClick: () => focusStop(true) }, { label: '계속', secondary: true, onClick: () => { hush(); } } ] });
+}
+function focusTick() {
+  if (FOCUS.status === 'off' || FOCUS.status === 'paused') return;
+  const remain = FOCUS.endAt - Date.now();
+  // 원판 갱신 (1초에 한 번이면 충분)
+  const frac = Math.max(0, Math.min(1, remain / FOCUS.total));
+  const color = FOCUS.status === 'break' ? '#f0a030' : '#2a8c6e';
+  ring.style.background = `conic-gradient(${color} ${frac * 360}deg, #e4ece9 ${frac * 360}deg)`;
+  ring.querySelector('span').textContent = focusRemainMin();
+  if (remain > 0) return;
+  if (FOCUS.status === 'focus') {
+    FOCUS.sessions++; FOCUS.minutes += Math.round(FOCUS.total / MIN);
+    const longBreak = FOCUS.sessions % 4 === 0, bm = longBreak ? 15 : breakFor(FOCUS.minutesSet);
+    if (FOCUS.sessions === 4 && !FOCUS.coinGiven) { FOCUS.coinGiven = true; setTimeout(() => isak.coinBonus('focus'), 9000); }
+    focusSave();
+    FOCUS.status = 'break'; FOCUS.total = bm * MIN; FOCUS.endAt = Date.now() + FOCUS.total;
+    interrupt(); siren.bell(); emote('cheer', 8000, { poke: 5 });
+    const [stretch] = HOURLY[Math.floor(Math.random() * HOURLY.length)];
+    say(`${FOCUS.minutesSet}분 집중 완료! ${bm}분 쉬어요 ☕<br><small>${stretch} · 오늘 ${FOCUS.sessions}회</small>`, { ms: 12000, top: true });
+    isak.setOnTop('alarm'); setTimeout(() => { if (FOCUS.status === 'break') isak.setOnTop(false); }, 15000);   // 끝났을 땐 전체화면 위로도 15초
+  } else {
+    FOCUS.status = 'off'; ring.hidden = true; interrupt(); siren.bell();
+    emote('best', 0, { poke: 4 });
+    say('휴식 끝! 다시 집중할까요?', { ms: 0, choices: [
+      { label: `${FOCUS.minutesSet}분 시작`, onClick: () => focusStart(FOCUS.minutesSet) },
+      { label: '오늘은 그만', secondary: true, onClick: () => { interrupt(); emote('hello', 2500); say(`오늘 집중 ${FOCUS.sessions}회 · ${FOCUS.minutes}분, 수고했어요 👏`, { ms: 4000 }); } },
+    ]});
+  }
+}
+
 function hideForAWhile() {
   hush(); hidden = true;
   pet.style.visibility = shadow.style.visibility = 'hidden';
@@ -540,7 +633,8 @@ pet.addEventListener('contextmenu', (e) => {
   // 지금 어떤 상태인지 맨 위에 표시: 초과근무 중일 때만 근무확인 관련 메뉴가 나옴
   const st = document.getElementById('ctxStatus');
   st.className = (OT.status === 'active' || OT.status === 'excluded') ? 'on' : '';
-  st.innerHTML = {
+  const focusLine = FOCUS.status !== 'off' ? `<br>⏱ ${FOCUS.status === 'break' ? '휴식' : FOCUS.status === 'paused' ? '집중 일시정지' : '집중 중'} · ${focusRemainMin()}분 남음` : FOCUS.sessions ? `<br>🍅 오늘 집중 ${FOCUS.sessions}회 · ${FOCUS.minutes}분` : '';
+  st.innerHTML = focusLine + {
     active: OT.base ? `🟢 <b>초과근무 중</b> · 기준 ${fmt(OT.base)}<br>다음 마감 <b>${fmt(deadline())}</b>${OT.pendingPress ? ' (근무확인 대기)' : ''}` : `🟡 <b>초과근무 대기</b> · 근무확인 누르면 시작${OT.planAt ? `<br>${fmt(OT.planAt)}에 여쭤볼게요` : ''}`,
     excluded: `⏸ <b>제외시간</b> · 알람 쉬는 중`,
     none: env.isWorkday ? '평일 근무 중 · 17:55에 초과근무 여부를 여쭤볼게요' : '휴일이에요 · 초과근무 알람 꺼짐',
@@ -590,6 +684,7 @@ async function openGame(kind = 'orchard') {
   isak.openGame(kind);
 }
 const menuActions = {
+  focus: () => FOCUS.status === 'off' ? focusChoose() : focusBubble(),
   game: () => openGame('orchard'),
   typing: () => openGame('typing'),
   siren: sirenSettings,
@@ -660,14 +755,14 @@ function tick(now) {
   }
 
   if (s.mode === 'emote' && now > s.emoteUntil) endEmote();
-  otTick();
+  otTick(); focusTick();
 
   if (s.mode === 'idle') {
     if (now > s.nextBlink) { s.blinkUntil = now + 130; s.nextBlink = now + 2200 + Math.random() * 3500; }
     setFrame(now < s.blinkUntil ? 'blink' : 'idle');
   }
 
-  if (autoplay && !resizing && !hidden && !bubbleBusy() && s.mode === 'idle' && now > s.nextAuto) {
+  if (autoplay && !resizing && !hidden && !bubbleBusy() && FOCUS.status === 'off' && s.mode === 'idle' && now > s.nextAuto) {
     const r = Math.random();
     if (r < 0.5) startWalk();
     else if (r < 0.62) actions.research();
@@ -707,6 +802,7 @@ function tick(now) {
   shadow.style.transform = `translate(${s.x - SIZE * 0.275}px, ${G - SIZE * 0.04}px) scale(${shScale * (1 + s.sq * 0.6)}, ${shScale})`;
   shadow.style.opacity = shScale;
 
+  if (!ring.hidden) ring.style.transform = `translate(${s.x - 34}px, ${s.y - SIZE * FOOT - hop - 76}px)`;
   if (bubble.style.display === 'block') {
     const bw = bubble.offsetWidth / 2 + 8;
     bubble.style.left = `${Math.max(bw, Math.min(env.width - bw, s.x))}px`;
@@ -744,6 +840,9 @@ let resumedSession = false;
   const st = e.state;
   autoplay = st.autoplay;
   if (st.hourlyEvery !== undefined) hourlyEvery = st.hourlyEvery;
+  if (st.focusMinutes) FOCUS.minutesSet = st.focusMinutes;
+  FOCUS.onTop = !!st.focusOnTop;
+  if (st.focus && st.focus.date === workDate()) { FOCUS.sessions = st.focus.sessions || 0; FOCUS.minutes = st.focus.minutes || 0; FOCUS.coinGiven = !!st.focus.coinGiven; }
   if (st.sound) siren.configure(st.sound);
   setSize(st.size, false);
   applyEnv({ ...e, xRatio: st.xRatio });
@@ -774,7 +873,7 @@ isak.on('user-return', onUserReturn);
 isak.on('coin', ({ coins, cap, reason }) => {
   if (bubbleBusy()) return;
   interrupt(); emote('cheer', 2600, { poke: 6 });
-  say(reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : reason === 'daily' ? `새 근무일! 코인을 채워 뒀어요 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
+  say(reason === 'focus' ? `오늘 4번 집중! 코인 +1 🪙 (${coins}/${cap})` : reason === 'bonus' ? `제때 눌러서 코인 +1 🪙 (${coins}/${cap})` : reason === 'daily' ? `새 근무일! 코인을 채워 뒀어요 🪙 (${coins}/${cap})` : `코인 +1 🪙 (보유 ${coins}/${cap})`);
 });
 isak.on('game-result', ({ kind, score, best, cleared }) => {
   interrupt();
@@ -791,6 +890,8 @@ isak.on('command', (c) => {
   else if (c.type === 'size') setSize(c.value);
   else if (c.type === 'autoplay') autoplay = c.value;
   else if (c.type === 'hourly') hourlyEvery = c.value;
+  else if (c.type === 'focus-start') (FOCUS.status === 'off' ? focusChoose() : focusBubble());
+  else if (c.type === 'focus-ontop') { FOCUS.onTop = c.value; if (FOCUS.status === 'focus') isak.setOnTop(FOCUS.onTop ? 'alarm' : false); }
   else if (c.type === 'sound') { siren.configure(c.value); if (c.value.theme) siren.preview(c.value.theme); }
   else if (c.type === 'siren-test') { siren.play(3); setTimeout(() => siren.stop(), 4000); }
   else if (c.type === 'alarm-test') otAlarmTest();

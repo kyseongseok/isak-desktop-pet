@@ -97,3 +97,9 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
 #flash.soft { animation-duration: 1.2s; filter: opacity(.45); }
 #bubble .choices.wrap { flex-wrap: wrap; }
 #bubble .choices.wrap button { flex: 1 1 45%; }
+
+/* 집중 타이머 원판: 남은 시간만큼 색이 차 있고 시간이 가면 비워짐 (Time Timer 방식) */
+#ring { position: absolute; left: 0; top: 0; width: 68px; height: 68px; border-radius: 50%; z-index: 21; pointer-events: none;
+  background: conic-gradient(#2a8c6e 360deg, #e4ece9 0); box-shadow: 0 3px 10px rgba(0,0,0,.2); display: grid; place-items: center; }
+#ring[hidden] { display: none; }
+#ring span { width: 44px; height: 44px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; font-size: 17px; color: #1e3d33; font-variant-numeric: tabular-nums; }

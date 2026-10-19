@@ -118,5 +118,14 @@ const siren = (() => {
   }
   function configure(partial) { Object.assign(settings, partial); if (master) master.gain.value = settings.volume / 100 * 0.5 * stageGain; }
 
-  return { play, stop, preview, configure, settings };
+  // 집중 타이머 종료: 부드러운 종소리 두 번 (사이렌 테마와 무관, 볼륨 설정만 공유)
+  function bell() {
+    stageGain = 0.8; const c = audio(), t0 = c.currentTime;
+    [0, 0.55].forEach(d => [659.3, 987.8, 1318.5].forEach((f, i) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f;
+      const t = t0 + d; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.35 / (i + 1), t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 1.5);
+    }));
+  }
+  return { play, stop, preview, configure, settings, bell };
 })();

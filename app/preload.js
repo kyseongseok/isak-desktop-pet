@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('isak', {
   petDropped: () => ipcRenderer.send('pet-dropped'),
   quit: () => ipcRenderer.send('quit'),
   openGame: (kind) => ipcRenderer.send('open-game', kind),
-  coinBonus: () => ipcRenderer.send('coin-bonus'),
+  coinBonus: (reason) => ipcRenderer.send('coin-bonus', reason),
   getCoins: () => ipcRenderer.invoke('get-coins'),
   alarmStage: (info) => ipcRenderer.send('alarm-stage', info),
   on: (channel, cb) => {
