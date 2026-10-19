@@ -51,7 +51,7 @@ const todayAt = (h, m) => { const d = new Date(); d.setHours(h, m, 0, 0); return
 
 // ---------- 말풍선 ----------
 let bubbleTimer = null;
-function say(html, { ms = 3500, alarm = false, choices = null } = {}) {
+function say(html, { ms = 3500, alarm = false, choices = null, top = false } = {}) {
   bubble.innerHTML = html;
   bubble.className = alarm ? 'alarm' : '';
   bubble.style.display = 'block';
@@ -70,7 +70,7 @@ function say(html, { ms = 3500, alarm = false, choices = null } = {}) {
   clearTimeout(bubbleTimer);
   if (ms) bubbleTimer = setTimeout(hush, ms);
   // 근무확인 알람은 전체화면 앱 위로도 계속 끌어올림, 답이 필요한 질문은 한 번만 올림, 케어 메시지·딴짓 대사는 평소 자리에서 조용히
-  isak.setOnTop(alarm ? 'alarm' : !!choices);
+  isak.setOnTop(alarm ? 'alarm' : (!!choices || top));
 }
 function hush() { bubble.style.display = 'none'; bubble.classList.remove('wide'); clearTimeout(bubbleTimer); isak.setOnTop(false); }
 const bubbleBusy = () => bubble.style.display === 'block' && !!bubble.querySelector('.choices, input');
@@ -110,6 +110,24 @@ const CARE = [
   ['커피 한 잔 하고 올까요? ☕', 'produce'],
 ];
 let lastCare = -Infinity;                 // 0이면 켠 뒤 40분 동안 한 번도 못 말함
+// 정시 스트레칭: N시간마다 정각에 한 번, 화면 위로 올라와서 몸 풀기 권유 (09~20시, 알람·질문 중엔 건너뜀)
+let hourlyEvery = 2, lastHourly = -1;
+const HOURLY = [
+  ['정각이에요! 잠깐 기지개 쭉 펴 볼까요? 🙆', 'cheer'],
+  ['물 한 잔 하고 오시는 게 어때요? 💧', 'hello'],
+  ['어깨랑 목을 살살 돌려 볼까요? 🔄', 'best'],
+  ['허리 펴고 먼 곳 한 번 바라봐요 👀', 'curious'],
+  ['잠깐 일어나서 두어 걸음 걸어 볼까요? 🚶', 'run'],
+];
+function hourlyTick() {
+  if (!hourlyEvery || tutorial.active || bubbleBusy()) return;
+  const d = new Date(), h = d.getHours();
+  if (d.getMinutes() !== 0 || h < 9 || h > 20 || h % hourlyEvery !== 0 || lastHourly === h) return;
+  lastHourly = h;
+  const [text, face] = HOURLY[Math.floor(Math.random() * HOURLY.length)];
+  interrupt(); emote(face === 'run' ? 'hello' : face, 6000, { poke: 4 });
+  say(`<small>${String(h).padStart(2, '0')}:00</small><br>${text}`, { ms: 8000, top: true });
+}
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const scene = () => 15000 + Math.random() * 10000;
 const actions = {
@@ -153,6 +171,7 @@ function otReset() {
 
 let bootDone = false;                          // 시작 인사·튜토리얼을 먼저 정한 뒤에 질문·알람이 돌기 시작
 function otTick() {
+  hourlyTick();
   if (!bootDone || tutorial.active) return;    // 튜토리얼이 끝날 때까지 질문·알람 보류
   const t = Date.now();
   // 앱을 켜 둔 채 근무일이 바뀌면(새벽 5시 지남) 어제 기록은 버리고 새로 시작
@@ -724,6 +743,7 @@ let resumedSession = false;
   const e = await isak.getEnv();
   const st = e.state;
   autoplay = st.autoplay;
+  if (st.hourlyEvery !== undefined) hourlyEvery = st.hourlyEvery;
   if (st.sound) siren.configure(st.sound);
   setSize(st.size, false);
   applyEnv({ ...e, xRatio: st.xRatio });
@@ -770,6 +790,7 @@ isak.on('command', (c) => {
   else if (c.type === 'finish') otFinish();
   else if (c.type === 'size') setSize(c.value);
   else if (c.type === 'autoplay') autoplay = c.value;
+  else if (c.type === 'hourly') hourlyEvery = c.value;
   else if (c.type === 'sound') { siren.configure(c.value); if (c.value.theme) siren.preview(c.value.theme); }
   else if (c.type === 'siren-test') { siren.play(3); setTimeout(() => siren.stop(), 4000); }
   else if (c.type === 'alarm-test') otAlarmTest();

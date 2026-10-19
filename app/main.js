@@ -20,6 +20,7 @@ const defaultState = {
   xRatio: 0.4,                      // 모니터 너비 대비 펫 위치
   displayId: null,
   autoplay: true,
+  hourlyEvery: 2,                   // 정시 스트레칭 알림 간격(시간), 0이면 끔
   autostart: true,
   coins: 5,                         // 처음 설치 시 체험용 5개
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
@@ -279,6 +280,9 @@ function updateTray() {
       { label: '알람 흐름 테스트 (5·3·1분 전·초과, 1분)', click: () => send('command', { type: 'alarm-test' }) },
     ] },
     { label: '튜토리얼 다시 보기', click: () => send('command', { type: 'tutorial' }) },
+    { label: '정시 스트레칭 알림', submenu: [[0, '끔'], [1, '1시간마다'], [2, '2시간마다'], [3, '3시간마다']].map(([n, label]) => ({
+      label, type: 'radio', checked: (state.hourlyEvery ?? 2) === n,
+      click: () => { saveState({ hourlyEvery: n }); send('command', { type: 'hourly', value: n }); } })) },
     { label: '자동 행동 (걷기·딴짓)', type: 'checkbox', checked: state.autoplay,
       click: (item) => { saveState({ autoplay: item.checked }); send('command', { type: 'autoplay', value: item.checked }); } },
     { label: '부팅 시 자동 실행', type: 'checkbox', checked: state.autostart,
