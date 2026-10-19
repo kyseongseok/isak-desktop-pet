@@ -181,7 +181,7 @@ function otTick() {
     OT.status = 'done'; otSave(); interrupt();
     say('한참 응답이 없어서 초과근무 알람을 껐어요 🙂<br><small>다시 하려면 우클릭 → 초과근무 시작</small>', { ms: 8000 });
   }
-  if (OT.status === 'none' && t >= OT.snoozeUntil && (!env.isWorkday || minuteOfDay(t) >= ASK_AT)) otAsk();
+  if (OT.status === 'none' && t >= OT.snoozeUntil && (!env.isWorkday || minuteOfDay(t) >= ASK_AT) && FOCUS.status === 'off') otAsk();   // 집중 중엔 끝난 뒤에
   if (OT.status === 'active' && OT.pendingPress && OT.planAt && !OT.planReminded && t >= OT.planAt) {
     OT.planReminded = true; interrupt(); emote('alarm', 0, { poke: 4 }); siren.play(1);
     say(`${fmt(OT.planAt)}이에요! 근무확인 누르셨나요? 🔔`, { ms: 0, alarm: true, choices: [
@@ -328,6 +328,7 @@ function otPressed() {
   if (first) { emote('best', 2500, { poke: 5 }); say(`초과근무 시작! (기준 ${fmt(OT.base)})<br>${nextInfo()}`, { ms: 5000 }); return; }
   if (late) { emote('hello', 4500, { poke: 4 }); say(`괜찮아요, 그럴 수 있죠! 🙂<br>${nextInfo()}`, { ms: 5000 }); }
   else { emote('best', 2500, { poke: 5 }); say(`근무확인 완료! 최고예요 👍<br>${nextInfo()}`, { ms: 5000 }); isak.coinBonus(); }
+  if (FOCUS.status === 'focus') setTimeout(() => { if (FOCUS.status === 'focus' && s.mode !== 'emote') emote('research', 0); }, 5200);   // 집중 중이면 조용한 포즈로 복귀
 }
 
 function otFixTime() {
@@ -534,7 +535,9 @@ const focusRemainMin = () => Math.max(0, Math.ceil((FOCUS.status === 'paused' ? 
 const breakFor = (m) => (m >= 45 ? 10 : 5);
 function focusSave() { isak.saveState({ focusMinutes: FOCUS.minutesSet, focus: { date: workDate(), sessions: FOCUS.sessions, minutes: FOCUS.minutes, coinGiven: FOCUS.coinGiven } }); }
 
+const alarmActive = () => OT.status === 'active' && OT.stage > 0;
 function focusChoose() {
+  if (alarmActive()) { say('근무확인부터 눌러 주세요! 그다음 집중해요 🔔', { ms: 3000 }); return; }
   interrupt();
   emote('think', 0, { poke: 2 });
   say(`집중 타이머 ⏱ 몇 분 할까요?<br><small>끝나면 ${breakFor(FOCUS.minutesSet)}분 쉬고, 집중 중엔 조용히 있을게요</small>`, { ms: 0, choices: [
@@ -597,6 +600,7 @@ function focusTick() {
   ring.style.background = `conic-gradient(${color} ${frac * 360}deg, #e4ece9 ${frac * 360}deg)`;
   ring.querySelector('span').textContent = focusRemainMin();
   if (remain > 0) return;
+  if (alarmActive()) { FOCUS.endAt = Date.now() + MIN; return; }   // 알람 처리가 끝난 뒤에 종료 안내
   if (FOCUS.status === 'focus') {
     FOCUS.sessions++; FOCUS.minutes += Math.round(FOCUS.total / MIN);
     const longBreak = FOCUS.sessions % 4 === 0, bm = longBreak ? 15 : breakFor(FOCUS.minutesSet);
