@@ -108,10 +108,15 @@ setInterval(() => {
   const over = hitRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
   if (over !== lastOver) { lastOver = over; win.setIgnoreMouseEvents(!over, { forward: true }); }
 }, 50);
+// 알림·말풍선이 떠 있는 동안만 맨 위로, 평소에는 다른 창 뒤로 내려감
+// 전체화면 앱(한글·워드 전체화면 등)이 그 사이 맨 위를 차지하면 밀리므로, 켜져 있는 동안 0.5초마다 다시 끌어올림
+let onTopTimer = null;
+function raise() { if (!win || win.isDestroyed()) return; win.setAlwaysOnTop(true, 'screen-saver', 1); win.moveTop(); }
 ipcMain.on('set-on-top', (_e, onTop) => {
   if (!win) return;
-  // 알림·말풍선이 떠 있는 동안만 맨 위로, 평소에는 다른 창 뒤로 내려감
-  if (onTop) win.setAlwaysOnTop(true, 'screen-saver'); else win.setAlwaysOnTop(false);
+  clearInterval(onTopTimer); onTopTimer = null;
+  if (onTop) { raise(); onTopTimer = setInterval(raise, 500); }
+  else win.setAlwaysOnTop(false);
 });
 ipcMain.on('notify', (_e, { title, body }) => {
   if (Notification.isSupported()) new Notification({ title, body, silent: false }).show();
