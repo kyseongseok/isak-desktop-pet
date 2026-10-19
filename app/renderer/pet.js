@@ -62,7 +62,7 @@ function say(html, { ms = 3500, alarm = false, choices = null, top = false } = {
       const b = document.createElement('button');
       b.textContent = c.label;
       if (c.secondary) b.className = 'secondary';
-      b.onclick = (e) => { e.stopPropagation(); c.onClick(); };
+      onTap(b, () => c.onClick());
       box.appendChild(b);
     });
     bubble.appendChild(box);
@@ -71,6 +71,13 @@ function say(html, { ms = 3500, alarm = false, choices = null, top = false } = {
   if (ms) bubbleTimer = setTimeout(hush, ms);
   // 근무확인 알람은 전체화면 앱 위로도 계속 끌어올림, 답이 필요한 질문은 한 번만 올림, 케어 메시지·딴짓 대사는 평소 자리에서 조용히
   isak.setOnTop(alarm ? 'alarm' : (!!choices || top));
+}
+// 비활성(포커스 없는) 창에서는 윈도우가 click 이벤트를 안 만들어 주기도 함 → pointerup과 click 중 먼저 오는 것 하나로 실행
+function onTap(el, fn) {
+  let last = 0;
+  const run = (e) => { e.stopPropagation(); const now = performance.now(); if (now - last < 300) return; last = now; fn(e); };
+  el.addEventListener('pointerup', (e) => { if (e.button === 0) run(e); });
+  el.addEventListener('click', run);
 }
 function hush() { bubble.style.display = 'none'; bubble.classList.remove('wide'); clearTimeout(bubbleTimer); isak.setOnTop(false); }
 const bubbleBusy = () => bubble.style.display === 'block' && !!bubble.querySelector('.choices, input');
@@ -275,13 +282,15 @@ function askTime(html, defMs, cb, onCancel = interrupt) {
     <div class="tp-sep">:</div>
     <div class="tp-col"><button data-d="5">▲</button><div class="tp-m">00</div><button data-d="-5">▼</button></div>
     <div class="tp-side"><div class="tp-rel"></div><button data-zero>정시로</button></div>`;
-  box.addEventListener('click', (e) => {
+  let lastTap = 0;
+  const tap = (e) => {
     const b = e.target.closest('button'); if (!b) return;
-    e.stopPropagation();
+    e.stopPropagation(); const now = performance.now(); if (now - lastTap < 250) return; lastTap = now;
     if (b.dataset.zero !== undefined) d.setMinutes(0);
     else d.setTime(d.getTime() + (+b.dataset.d) * MIN);
     render();
-  });
+  };
+  box.addEventListener('pointerup', tap); box.addEventListener('click', tap);
   bubble.insertBefore(box, bubble.querySelector('.choices'));
   render();
 }
@@ -429,16 +438,18 @@ let drag = null;
 pet.addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || resizing) return;
   if (FOCUS.status === 'focus' || FOCUS.status === 'paused') { poke(4); focusBubble(); return; }   // 집중 중엔 던지기 없음
-  pet.setPointerCapture(e.pointerId);
+  // 포인터 캡처는 쓰지 않음: 윈도우는 비활성 창의 마우스 캡처를 거부해 드래그·클릭이 끊김. 대신 문서 전체에서 추적
   drag = { startX: e.clientX, startY: e.clientY, offX: s.x - e.clientX, offY: s.y - e.clientY,
            moved: false, hist: [{ x: e.clientX, y: e.clientY, t: performance.now() }] };
+  sendHitRects();
 });
 pet.addEventListener('pointermove', (e) => {
-  if (!drag) {
-    const sp = Math.hypot(e.movementX, e.movementY);      // 문지르기
-    if (sp > 6 && s.mode !== 'fly') { poke(Math.min(sp, 30) * 0.08); s.tiltV += e.movementX * 0.004; }
-    return;
-  }
+  if (drag) return;
+  const sp = Math.hypot(e.movementX, e.movementY);      // 문지르기
+  if (sp > 6 && s.mode !== 'fly') { poke(Math.min(sp, 30) * 0.08); s.tiltV += e.movementX * 0.004; }
+});
+addEventListener('pointermove', (e) => {
+  if (!drag) return;
   if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 6) {
     drag.moved = true;
     if (!bubbleBusy()) hush();
@@ -452,7 +463,7 @@ pet.addEventListener('pointermove', (e) => {
     if (drag.hist.length > 6) drag.hist.shift();
   }
 });
-pet.addEventListener('pointerup', () => {
+function endDrag(e) {
   if (!drag) return;
   pet.classList.remove('dragging');
   if (!drag.moved) onClickPet();
@@ -465,8 +476,11 @@ pet.addEventListener('pointerup', () => {
     s.mode = 'fly';
     isak.petDropped();                                     // 다른 모니터에 놓았는지 확인
   }
-  drag = null;
-});
+  drag = null; sendHitRects();
+}
+addEventListener('pointerup', (e) => { if (e.button === 0) endDrag(e); });
+addEventListener('pointercancel', endDrag);
+addEventListener('blur', () => { if (drag) endDrag(); });
 
 function onClickPet() {
   const now = performance.now();
@@ -518,14 +532,14 @@ function endResize() {
 const handle = pet.querySelector('.handle');
 let hDrag = null;
 handle.addEventListener('pointerdown', (e) => {
-  e.stopPropagation(); handle.setPointerCapture(e.pointerId);
-  hDrag = { x: e.clientX, y: e.clientY, size: SIZE };
+  e.stopPropagation();
+  hDrag = { x: e.clientX, y: e.clientY, size: SIZE }; sendHitRects();
 });
-handle.addEventListener('pointermove', (e) => {
+addEventListener('pointermove', (e) => {
   if (!hDrag) return;
   setSize(hDrag.size + ((e.clientX - hDrag.x) * 2 - (e.clientY - hDrag.y)) / 2, false);
 });
-handle.addEventListener('pointerup', () => { hDrag = null; });
+addEventListener('pointerup', () => { if (hDrag) { hDrag = null; sendHitRects(); } });
 
 // ---------- 집중 타이머 (Time Timer 원판 + 뽀모도로) ----------
 // 집중 중엔 걷기·딴짓·케어·정시 알림·던지기 멈춤. 근무확인 알람만 그대로. 창은 평소대로 뒤에 (설정으로 항상 위)
@@ -558,7 +572,9 @@ function focusPickMinutes() {
   const box = document.createElement('div');
   box.className = 'timepick';
   box.innerHTML = `<div class="tp-col"><button data-d="5">▲</button><div class="tp-m">${m}</div><button data-d="-5">▼</button></div><div class="tp-side"><div class="tp-rel">분</div></div>`;
-  box.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); m = Math.max(5, Math.min(180, m + (+b.dataset.d))); box.querySelector('.tp-m').textContent = m; });
+  let lastTap = 0;
+  const tap = (e) => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); const now = performance.now(); if (now - lastTap < 250) return; lastTap = now; m = Math.max(5, Math.min(180, m + (+b.dataset.d))); box.querySelector('.tp-m').textContent = m; };
+  box.addEventListener('pointerup', tap); box.addEventListener('click', tap);
   bubble.insertBefore(box, bubble.querySelector('.choices'));
 }
 function focusStart(minutes) {
@@ -695,12 +711,15 @@ const menuActions = {
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(), tutorial: () => tutorial.start(),
 };
-menu.addEventListener('click', (e) => {
+let menuLastTap = 0;
+const menuTap = (e) => {
+  const now = performance.now(); if (now - menuLastTap < 300) return; menuLastTap = now;
   const item = e.target.closest('[data-menu]');
   if (!item) return;
   menu.style.display = 'none';
   menuActions[item.dataset.menu]();
-});
+};
+menu.addEventListener('pointerup', (e) => { if (e.button === 0) menuTap(e); }); menu.addEventListener('click', menuTap);
 
 // ---------- 클릭 통과: 펫·말풍선·메뉴 위에서만 마우스를 받음 ----------
 // 판정은 메인 프로세스가 커서 위치로 함. 여기서는 마우스를 받아야 할 영역을 10번/초 보내 줌
