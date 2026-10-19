@@ -112,10 +112,12 @@ setInterval(() => {
 // 전체화면 앱(한글·워드 전체화면 등)이 그 사이 맨 위를 차지하면 밀리므로, 켜져 있는 동안 0.5초마다 다시 끌어올림
 let onTopTimer = null;
 function raise() { if (!win || win.isDestroyed()) return; win.setAlwaysOnTop(true, 'screen-saver', 1); win.moveTop(); }
-ipcMain.on('set-on-top', (_e, onTop) => {
+// mode: 'alarm' = 전체화면 앱 위로도 계속 끌어올림(근무확인 알람) / true = 한 번만 올림(질문·안내) / false = 내림
+ipcMain.on('set-on-top', (_e, mode) => {
   if (!win) return;
   clearInterval(onTopTimer); onTopTimer = null;
-  if (onTop) { raise(); onTopTimer = setInterval(raise, 500); }
+  if (mode === 'alarm') { raise(); onTopTimer = setInterval(raise, 500); }
+  else if (mode) raise();
   else win.setAlwaysOnTop(false);
 });
 ipcMain.on('notify', (_e, { title, body }) => {
