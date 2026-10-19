@@ -310,8 +310,7 @@ function otAlarm(stage) {
   const dl = fmt(deadline());
   if (stage === 4) {
     emote('tired', 0);
-    say(`앗… ${dl} 마감이 지났어요 ㅠ<br>사유 적고 근무확인 눌러 주세요`, { ms: 0, choices: [
-      { label: '지금 눌렀어요', onClick: otPressed } ] });
+    otAlarmSay(4);
     isak.notify('이삭이', `${dl} 근무확인 마감이 지났어요. 사유 적고 눌러 주세요`);
     siren.play(4);
     isak.alarmStage({ stage: 4, text: `${dl} 마감이 지났어요`, deadline: dl });
@@ -323,8 +322,37 @@ function otAlarm(stage) {
   isak.alarmStage({ stage, text, deadline: dl });
   emote('alarm', 0, { poke: 4 + stage });
   s.shake = stage;
-  say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭하거나 ↓</small>`, { ms: 0, alarm: true, choices: [{ label: '근무확인 눌렀어요', onClick: otPressed }] });
+  otAlarmSay(stage);
   if (stage === 1) isak.notify('이삭이', `근무확인 누를 시간이에요! (${dl}까지)`);
+}
+
+// 알람 말풍선만 (소리·알림 없이) — 확인 질문에서 "아니요"를 누르면 이걸로 되돌림
+function otAlarmSay(stage) {
+  const dl = fmt(deadline());
+  if (stage === 4) {
+    say(`앗… ${dl} 마감이 지났어요 ㅠ<br>사유 적고 근무확인 눌러 주세요`, { ms: 0, choices: [
+      { label: '지금 눌렀어요', onClick: otPressed } ] });
+    return;
+  }
+  const text = { 1: '근무확인 누를 시간이에요! 🔔', 2: '3분 남았어요! ⏳', 3: '1분 남았어요!! 🚨' }[stage];
+  say(`${text}<br><small>${dl}까지 · 누르고 저를 클릭하거나 ↓</small>`, { ms: 0, alarm: true, choices: [{ label: '근무확인 눌렀어요', onClick: otPressed }] });
+}
+
+// 이삭이를 클릭했다고 바로 근무확인으로 기록하지 않고 한 번 물어봄 (던지기·메뉴 열기 등 실수 클릭이 기준 시각이 되는 걸 막음)
+function otConfirmPress() {
+  const alarm = OT.stage > 0 && OT.stage < 4;   // 초과 상태는 원래 말풍선처럼 한 번만 올림
+  say('근무확인 누르셨어요?', { ms: alarm ? 0 : 12000, alarm, choices: [
+    { label: '네, 눌렀어요', onClick: otPressed },
+    { label: '아니요', secondary: true, onClick: () => {
+        if (OT.stage > 0) otAlarmSay(OT.stage);
+        else { hush(); say('알겠어요, 누르면 알려 주세요 🙂', { ms: 2500 }); } } },
+  ]});
+}
+function otConfirmResume() {
+  say('복귀하셨어요?', { ms: 12000, choices: [
+    { label: '네, 복귀했어요', onClick: otResume },
+    { label: '아니요', secondary: true, onClick: () => { hush(); say('그럼 더 쉬다 오세요 🙂', { ms: 2500 }); } },
+  ]});
 }
 
 function otPressed() {
@@ -486,8 +514,8 @@ function onClickPet() {
   const now = performance.now();
   s.clicks = s.clicks.filter(t => now - t < 1500); s.clicks.push(now);
   poke(9);
-  if (OT.status === 'excluded') { otResume(); return; }
-  if (OT.status === 'active' && (OT.stage > 0 || OT.pendingPress)) { otPressed(); return; }
+  if (OT.status === 'excluded') { otConfirmResume(); return; }
+  if (OT.status === 'active' && (OT.stage > 0 || OT.pendingPress)) { otConfirmPress(); return; }
   if (s.clicks.length >= 5) {
     s.clicks = [];
     emote('surprise', 1400, { poke: 6 }); say('으앗! 그만 눌러요~');
