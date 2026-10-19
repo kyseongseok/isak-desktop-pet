@@ -63,10 +63,10 @@ const siren = (() => {
     o.start();
     running.push(() => { clearInterval(timer); g.gain.setTargetAtTime(0, c.currentTime, 0.05); o.stop(c.currentTime + 0.3); });
   }
-  // 🪩 128 BPM 킥 + 하이햇 + 신스 스탭
+  // 🪩 128 BPM 킥 + 하이햇 + 신스 스탭 + 베이스. 짧게 끊기는 소리라 사이렌보다 작게 들려서 전체적으로 세게 잡음
   function club(soft) {
     const c = audio();
-    const beat = 60 / 128, vol = soft ? 0.5 : 1;
+    const beat = 60 / 128, vol = soft ? 0.6 : 1;
     const noiseBuf = c.createBuffer(1, c.sampleRate * 0.1, c.sampleRate);
     const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const bass = [55, 55, 65.4, 49];
@@ -74,26 +74,32 @@ const siren = (() => {
     const kick = (at) => {
       const o = c.createOscillator(), g = c.createGain();
       o.frequency.setValueAtTime(150, at); o.frequency.exponentialRampToValueAtTime(40, at + 0.12);
-      g.gain.setValueAtTime(0.9 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.25);
+      g.gain.setValueAtTime(1.3 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.3);
       o.connect(g); g.connect(master); o.start(at); o.stop(at + 0.3);
     };
     const hat = (at) => {
       const s = c.createBufferSource(), g = c.createGain(), hp = c.createBiquadFilter();
       s.buffer = noiseBuf; hp.type = 'highpass'; hp.frequency.value = 7000;
-      g.gain.setValueAtTime(0.25 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
+      g.gain.setValueAtTime(0.4 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.05);
       s.connect(hp); hp.connect(g); g.connect(master); s.start(at); s.stop(at + 0.06);
     };
     const stab = (at, f) => [f * 4, f * 5, f * 6].forEach(freq => {
       const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.value = freq; lp.type = 'lowpass';
       lp.frequency.setValueAtTime(2500, at); lp.frequency.exponentialRampToValueAtTime(400, at + 0.2);
-      g.gain.setValueAtTime(0.08 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.22);
+      g.gain.setValueAtTime(0.2 * vol, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.22);
       o.connect(lp); lp.connect(g); g.connect(master); o.start(at); o.stop(at + 0.25);
     });
+    const bassNote = (at, f) => {                       // 8분음표 베이스: 킥 사이를 채워 소리가 끊기지 않게
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.55 * vol, at + 0.01); g.gain.exponentialRampToValueAtTime(0.001, at + beat * 0.45);
+      o.connect(g); g.connect(master); o.start(at); o.stop(at + beat * 0.5);
+    };
     const timer = setInterval(() => {
       while (t < c.currentTime + 0.6) {
         const f = bass[bar % 4];
-        for (let b = 0; b < 4; b++) { kick(t + b * beat); hat(t + b * beat + beat / 2); if (b % 2) stab(t + b * beat + beat / 2, f); }
+        for (let b = 0; b < 4; b++) { kick(t + b * beat); hat(t + b * beat + beat / 2); bassNote(t + b * beat + beat / 2, f); if (b % 2) stab(t + b * beat + beat / 2, f); }
         t += beat * 4; bar++;
       }
     }, 200);
