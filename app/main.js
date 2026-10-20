@@ -142,7 +142,13 @@ ipcMain.on('pet-dropped', () => {
   saveState();
   send('moved-display', { ...envForRenderer(), xRatio: state.xRatio });
 });
-ipcMain.on('quit', () => app.quit());
+// 종료: 창부터 바로 없애고 나감 (종료가 지연돼도 투명 오버레이·깜빡임 레이어가 화면에 남지 않게)
+function shutdown() {
+  clearInterval(onTopTimer); onTopTimer = null;
+  for (const w of BrowserWindow.getAllWindows()) { try { w.destroy(); } catch (e) {} }
+  app.quit();
+}
+ipcMain.on('quit', shutdown);
 
 // ---------- 게임 창: 펫 창은 키보드를 못 받으므로 별도의 보통 창 ----------
 // 게임 목록: 폴더 이름 = 종류. 기록은 state.games[kind]에 따로 저장
@@ -298,7 +304,7 @@ function updateTray() {
     { label: '부팅 시 자동 실행', type: 'checkbox', checked: state.autostart,
       click: (item) => { saveState({ autostart: item.checked }); applyAutostart(); } },
     { type: 'separator' },
-    { label: '종료', click: () => app.quit() },
+    { label: '종료', click: shutdown },
   ]);
   tray.setContextMenu(menu);
   tray.setToolTip(`이삭이 · ${otLabel()}`);
@@ -323,4 +329,5 @@ app.whenReady().then(() => {
   if (process.env.ISAK_TEST_ALARM) setTimeout(() => send('command', { type: 'alarm-test' }), 4000);   // 개발용: 알람 흐름 자동 테스트
 });
 app.on('window-all-closed', () => app.quit());
+app.on('before-quit', () => { clearInterval(onTopTimer); onTopTimer = null; });
 app.on('second-instance', () => { if (win) win.show(); });

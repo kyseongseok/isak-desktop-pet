@@ -116,6 +116,8 @@ const siren = (() => {
     flash.className = settings.theme + (stage === 1 ? ' soft' : '');
   }
   function stop() { stopAll(); flash.className = ''; }
+  // 안전장치: 소리는 안 나는데 깜빡임 색만 남아 있으면 바로 지움 (어떤 경로로든 레이어가 걸려 있지 않게)
+  setInterval(() => { if (flash.className && running.length === 0) flash.className = ''; }, 1000);
   // 테마 고를 때 3초 미리 듣기
   function preview(theme) {
     const saved = settings.theme; settings.theme = theme;
