@@ -18,7 +18,7 @@ jobs:
           node-version: 22
       - run: npm ci --ignore-scripts
       - run: node node_modules/electron/install.js
-      - run: npm run build:win
+      - run: npm run build:win -- --publish never   # electron-builder의 자체 GitHub 배포는 끄고(토큰 없음), 첨부는 아래 단계에서
       - uses: actions/upload-artifact@v4
         with:
           name: isak-pet-win
