@@ -23,9 +23,16 @@ jobs:
         with:
           name: isak-pet-win
           path: dist/*.exe
+      # GitHub Release는 첨부 파일 이름에서 한글을 지워 버리므로 영문 이름으로 복사해서 붙임 (설치하면 "이삭이"로 표시됨)
+      - name: 영문 이름으로 복사
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ver = (Get-Content package.json | ConvertFrom-Json).version
+          Copy-Item (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName "dist\IsakPet-Setup-$ver.exe"
       - name: Release에 설치 파일 첨부 (태그 푸시일 때만)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: dist/IsakPet-Setup-*.exe
           fail_on_unmatched_files: true
