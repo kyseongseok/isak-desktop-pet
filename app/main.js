@@ -155,6 +155,7 @@ ipcMain.on('quit', shutdown);
 const GAMES = {
   orchard: { title: '과수원을 지켜라', dir: 'game' },
   typing: { title: '이삭이 타자게임', dir: 'typing' },
+  merge: { title: '이삭이 수확 합치기', dir: 'merge' },
 };
 let gameWin = null;
 function openGame(kind = 'orchard') {
@@ -267,6 +268,7 @@ function updateTray() {
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
     { label: '🎮 [미니게임] 과수원을 지켜라', click: () => openGame('orchard') },
     { label: '⌨️ [미니게임] 이삭이 타자게임', click: () => openGame('typing') },
+    { label: '🍉 [미니게임] 이삭이 수확 합치기', click: () => openGame('merge') },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },
@@ -325,7 +327,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyAutostart();
-  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing)
+  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing|merge)
   if (process.env.ISAK_TEST_ALARM) setTimeout(() => send('command', { type: 'alarm-test' }), 4000);   // 개발용: 알람 흐름 자동 테스트
 });
 app.on('window-all-closed', () => app.quit());

@@ -446,7 +446,7 @@ const tutorial = (() => {
     ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>개인 용무로 자리를 비울 땐 우클릭 → <b>제외시간 시작</b>, 돌아오면 저를 클릭해 주세요'],
     ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리 설정 · 크기 조정 · 미니게임 · 숨기기'],
     ['best', '<b>코인</b>은 매일 아침 <b>3개</b>로 채워져요 🪙<br>초과근무 중 근무확인을 제때 누르면 <b>1시간마다 +1</b>, 최대 5개까지 모여요<br><small>첫날엔 체험용으로 5개 드렸어요!</small>'],
-    ['cheer', '코인 1개로 <b>미니게임</b> 한 판!<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
+    ['cheer', '코인 1개로 <b>미니게임</b> 한 판!<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>🍉 <b>이삭이 수확 합치기</b>: 같은 작물끼리 합쳐 황금 이삭까지<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
     ['hello', '설정은 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br><small>윈도우: 작업표시줄 오른쪽 알림 영역 · 맥: 화면 위 메뉴 막대</small><br>이 안내는 우클릭 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
   ];
   let i = 0, active = false;
@@ -741,6 +741,7 @@ const menuActions = {
   focus: () => FOCUS.status === 'off' ? focusChoose() : focusBubble(),
   game: () => openGame('orchard'),
   typing: () => openGame('typing'),
+  merge: () => openGame('merge'),
   siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(), tutorial: () => tutorial.start(),
@@ -937,7 +938,7 @@ isak.on('coin', ({ coins, cap, reason }) => {
 });
 isak.on('game-result', ({ kind, score, best, cleared }) => {
   interrupt();
-  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(kind === 'typing' ? `새들을 다 쫓았어요! ${score.toLocaleString()}점 📣` : `과수원을 지켰어요! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
+  if (cleared) { emote('cheer', 4000, { poke: 6 }); say(kind === 'typing' ? `새들을 다 쫓았어요! ${score.toLocaleString()}점 📣` : kind === 'merge' ? `황금 이삭을 수확했어요! ${score.toLocaleString()}점 🌾` : `과수원을 지켰어요! ${score.toLocaleString()}점 🍎`, { ms: 4000 }); }
   else if (best) { emote('best', 4000, { poke: 5 }); say(`최고 기록! ${score.toLocaleString()}점 👍`, { ms: 4000 }); }
   else { emote('hello', 3000, { poke: 3 }); say(`${score.toLocaleString()}점! 다음엔 더 잘할 수 있어요`, { ms: 3500 }); }
 });

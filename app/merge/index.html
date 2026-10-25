@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'">
+<title>이삭이 수확 합치기</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .title { font-size: 48px; }
+  .howto-merge { bottom: 12px; line-height: 1.5; }
+  #intro .ranks { bottom: 58px; }
+  #intro .intro-info { bottom: 84px; }
+  .ladder { position: absolute; top: 242px; left: 0; right: 0; text-align: center; font-size: 13px; }
+  .ladder span { display: inline-block; background: #fffbe6; border: 2px solid #2b3a2e; padding: 3px 8px; line-height: 1.7; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 14px; margin: 8px 0; text-align: left; }
+  .stat-grid b { color: #1d6b53; float: right; }
+  /* 게임 방법 */
+  #howtoBtn { position: absolute; top: 52px; left: 8px; z-index: 20; padding: 5px 10px; border: 2px solid #2b3a2e; background: #fffbe6; font-family: 'Galmuri11'; font-size: 13px; cursor: pointer; }
+  #howto .panel { width: 380px; }
+  .page { display: none; text-align: left; font-size: 14px; line-height: 1.7; min-height: 250px; }
+  .page.on { display: block; }
+  .page h3 { margin: 0 0 8px; font-family: 'Galmuri14'; font-weight: 400; font-size: 20px; text-align: center; }
+  .page .pic { text-align: center; margin: 6px 0 10px; }
+  .page .pic img { width: 52px; height: 52px; vertical-align: middle; }
+  .page .pic .arrow { font-size: 22px; margin: 0 4px; vertical-align: middle; }
+  .page b { color: #d7451d; font-weight: 700; }
+  .page ul { margin: 4px 0; padding-left: 18px; }
+  .gauge { display: inline-block; width: 140px; height: 16px; border: 2px solid #2b3a2e; background: #ccc; vertical-align: middle; position: relative; }
+  .gauge i { position: absolute; left: 0; top: 0; bottom: 0; width: 55%; background: #4fb6f0; }
+  .dots { text-align: center; margin: 6px 0 2px; letter-spacing: 6px; font-size: 12px; color: #999; }
+  .dots .cur { color: #2a8c6e; }
+  .howto-btns { display: flex; gap: 10px; }
+  .howto-btns .btn { flex: 1; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="480" height="800"></canvas>
+
+  <div class="screen" id="intro">
+    <div class="title-box">
+      <div class="title">이삭이<br>수확 합치기</div>
+      <div class="subtitle">MERGE &amp; HARVEST</div>
+    </div>
+    <div class="press blink" id="pressStart">PRESS SPACE</div>
+    <div class="ladder"><span>씨앗 → 새싹 → 콩 → 딸기 → 감<br>→ 사과 → 배 → 참외 → 수박 → <b>황금 이삭</b></span></div>
+    <div class="intro-info">
+      <div class="coins" id="introCoins"></div>
+      <div class="best" id="introBest"></div>
+    </div>
+    <div class="ranks" id="introRanks"></div>
+    <div class="howto howto-merge">← → 로 옮기고 Space로 떨어뜨리기 · 같은 작물끼리 합치기<br>합칠 때마다 물 보충 · 물이 마르거나 상자가 넘치면 끝</div>
+    <button id="howtoBtn">❓ 게임 방법</button>
+  </div>
+
+  <div class="screen overlay" id="howto">
+    <div class="panel">
+      <div class="page">
+        <h3>같은 작물끼리 합쳐요</h3>
+        <div class="pic"><img src="../game/img/persimmon.png"><span class="arrow">+</span><img src="../game/img/persimmon.png"><span class="arrow">→</span><img src="../game/img/apple.png"></div>
+        <b>← →</b>로 옮기고 <b>Space</b>로 떨어뜨려요. (↓ 키도 돼요)<br>
+        길게 누르면 점점 빨리 움직여요.
+        같은 작물 둘이 닿으면 <b>다음 단계</b>로 자라요.
+        <ul><li>씨앗 → 새싹 → 콩 → 딸기 → 감</li><li>→ 사과 → 배 → 참외 → 수박 → <b>황금 이삭</b></li></ul>
+        왼쪽 위 NEXT 칸에서 다음 작물을 미리 볼 수 있어요.
+      </div>
+      <div class="page">
+        <h3>💧 물이 마르면 끝</h3>
+        <div class="pic">물 <span class="gauge"><i></i></span></div>
+        물은 가만히 있어도 <b>계속 줄어요</b>.
+        <ul><li>합칠 때마다 물이 차요. 큰 작물일수록 많이!</li><li>빨리 연달아 합치면 <b>콤보</b>로 점수·물 보너스</li><li>45초마다 스테이지가 오르고 물이 더 빨리 말라요</li></ul>
+      </div>
+      <div class="page">
+        <h3>장애물을 치워요</h3>
+        <div class="pic"><span class="arrow">🪨</span><img src="../game/img/bug.png"><span class="arrow">🌿</span></div>
+        가끔 <b>빨간 ▼ 경고</b> 뒤에 장애물이 떨어져요. 장애물은 작물과 합쳐지지 않고, <b>바로 옆에서 작물을 합치면</b> 치워져요.
+        <ul><li><b>돌</b>: 옆에서 <b>2번</b> 합치면 깨져요</li><li><b>벌레</b> (스테이지 2부터): 1번이면 퇴치. 하지만 벌레끼리 만나면 <b>큰 벌레</b>가 돼서 <b>2번</b> 합쳐야 해요</li><li><b>가시 덩굴</b> (스테이지 3부터): 점점 커져요. 옆에서 <b>1번</b> 합치면 걷어내요</li></ul>
+      </div>
+      <div class="page">
+        <h3>넘치지 않게!</h3>
+        <div class="pic"><img src="../game/img/item_golden_ear.png"></div>
+        작물이 위쪽 <b>빨간 점선</b>을 넘은 채 2.5초가 지나면 끝나요.
+        <ul><li><b>황금 이삭</b>을 만들면 물 가득 + 장애물 싹!</li><li>황금 이삭 둘을 합치면 <b>대풍년</b> +1,000점</li><li>ESC 일시정지 · 근무확인 알람이 오면 자동으로 멈춰요</li></ul>
+      </div>
+      <div class="dots" id="dots"></div>
+      <div class="howto-btns">
+        <button class="btn secondary" id="skipBtn">건너뛰기</button>
+        <button class="btn" id="nextBtn">다음</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen overlay" id="pause">
+    <div class="panel">
+      <div class="panel-title" id="pauseTitle">일시정지</div>
+      <div class="panel-text" id="pauseText">ESC로 계속</div>
+      <button class="btn" id="resumeBtn">계속하기</button>
+    </div>
+  </div>
+
+  <div class="screen overlay" id="result">
+    <div class="panel">
+      <div class="panel-title" id="resultTitle">GAME OVER</div>
+      <div class="score-line">SCORE <span id="resultScore">0</span></div>
+      <div class="panel-text" id="resultBest"></div>
+      <div class="stat-grid" id="resultStats"></div>
+      <button class="btn" id="retryBtn">다시 하기</button>
+      <button class="btn share" id="shareBtn">📸 점수 카드 복사·저장</button>
+      <button class="btn secondary" id="closeBtn">닫기</button>
+    </div>
+  </div>
+
+  <button id="x" title="닫기">×</button>
+  <button id="mute" title="효과음 켜기/끄기 (M)">🔊</button>
+  <button id="bgm" title="배경음악 켜기/끄기 (B)">♪</button>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

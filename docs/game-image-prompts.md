@@ -147,3 +147,23 @@ assets/game/
 - [ ] 아이콘 배경이 순백색이고 그림자가 없다
 - [ ] Gemini 워터마크가 아이콘과 겹치지 않는다
 - [ ] 새똥이 "귀엽게" 나왔다 (사무실용이니까요)
+
+---
+
+# 이삭이 수확 합치기 — 작물 이미지 (선택)
+
+지금은 새싹·감·사과·배·황금 이삭만 과수원 게임 이미지를 쓰고, 나머지는 코드로 그린 동그라미예요.
+아래 파일을 `app/merge/img/`에 넣으면 코드 수정 없이 그 이미지로 바뀝니다 (256×256 PNG, 투명 배경, 꽉 찬 원형 실루엣).
+
+| 파일 | 내용 |
+|---|---|
+| seed.png | 갈색 씨앗 한 알 |
+| sprout.png | 흙 위 떡잎 두 장 (지금은 화분 새싹이 이미지로 대체) |
+| bean.png | 초록 콩꼬투리 또는 동그란 콩 |
+| strawberry.png | 딸기 |
+| melon.png | 노란 참외 (흰 줄무늬) |
+| watermelon.png | 동그란 수박 |
+| stone.png | 회색 돌멩이 (장애물) |
+| weed.png | 동그랗게 뭉친 잡초 (장애물) |
+
+공통 프롬프트: `3D clay style, cute, soft studio lighting, single [작물] fills a round silhouette, centered, transparent background, no text, matching the existing apple.png style`
