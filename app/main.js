@@ -32,6 +32,7 @@ const defaultState = {
   coins: 5,                         // 처음 설치 시 체험용 5개
   ot: { status: 'none', base: null, date: null },   // 초과근무: 날짜가 바뀌면 초기화
   sound: { theme: 'quiet', volume: 40 },   // 알람 소리: 조용히 / 클럽 / 앰뷸런스 / 경찰차
+  playerName: '',                   // 점수 카드에 넣을 이름 (다섯 게임 공용)
 };
 let state = { ...defaultState };
 function loadState() {
@@ -156,6 +157,8 @@ const GAMES = {
   orchard: { title: '과수원을 지켜라', dir: 'game' },
   typing: { title: '이삭이 타자게임', dir: 'typing' },
   merge: { title: '이삭이 수확 합치기', dir: 'merge' },
+  pang: { title: '이삭이 수확팡', dir: 'pang' },
+  runner: { title: '이삭RUN', dir: 'runner' },
 };
 let gameWin = null;
 function openGame(kind = 'orchard') {
@@ -196,6 +199,9 @@ ipcMain.handle('get-best', (_e, kind) => gameRec(kind).best);
 // 최근 기록 20개 (점수·스테이지·클리어 여부·날짜)
 ipcMain.on('save-score', (_e, { kind, rec }) => { const g = gameRec(kind); g.history = [rec, ...g.history].slice(0, 20); saveState(); });
 ipcMain.handle('get-history', (_e, kind) => gameRec(kind).history);
+// 점수 카드 이름: 한 번 적으면 다섯 게임이 같이 씀
+ipcMain.handle('get-name', () => state.playerName || '');
+ipcMain.on('set-name', (_e, name) => saveState({ playerName: String(name || '').trim().slice(0, 10) }));
 // 점수 인증 카드: 클립보드에 복사하고, 원하면 PNG로 저장
 ipcMain.handle('share-card', async (_e, dataUrl) => {
   const img = nativeImage.createFromDataURL(dataUrl);
@@ -269,6 +275,8 @@ function updateTray() {
     { label: '🎮 [미니게임] 과수원을 지켜라', click: () => openGame('orchard') },
     { label: '⌨️ [미니게임] 이삭이 타자게임', click: () => openGame('typing') },
     { label: '🍉 [미니게임] 이삭이 수확 합치기', click: () => openGame('merge') },
+    { label: '🍎 [미니게임] 이삭이 수확팡', click: () => openGame('pang') },
+    { label: '🏃 [미니게임] 이삭RUN', click: () => openGame('runner') },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },
@@ -327,7 +335,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyAutostart();
-  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing|merge)
+  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing|merge|pang|runner)
   if (process.env.ISAK_TEST_ALARM) setTimeout(() => send('command', { type: 'alarm-test' }), 4000);   // 개발용: 알람 흐름 자동 테스트
 });
 app.on('window-all-closed', () => app.quit());

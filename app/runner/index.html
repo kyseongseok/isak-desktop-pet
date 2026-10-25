@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'">
+<title>이삭RUN</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #intro { background: url('img/bg_spring.jpg') center / cover no-repeat; }
+  .title { font-size: 54px; }
+  .howto-run { bottom: 12px; line-height: 1.5; }
+  #intro .ranks { bottom: 58px; }
+  #intro .intro-info { bottom: 84px; }
+  .seasons-line { position: absolute; top: 250px; left: 0; right: 0; text-align: center; font-size: 13px; }
+  .seasons-line span { display: inline-block; background: #fffbe6; border: 2px solid #2b3a2e; padding: 3px 8px; line-height: 1.7; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 14px; margin: 8px 0; text-align: left; }
+  .stat-grid b { color: #1d6b53; float: right; }
+  /* 게임 방법 */
+  #howtoBtn { position: absolute; top: 52px; left: 8px; z-index: 20; padding: 5px 10px; border: 2px solid #2b3a2e; background: #fffbe6; font-family: 'Galmuri11'; font-size: 13px; cursor: pointer; }
+  #howto .panel { width: 380px; }
+  .page { display: none; text-align: left; font-size: 14px; line-height: 1.7; min-height: 250px; }
+  .page.on { display: block; }
+  .page h3 { margin: 0 0 8px; font-family: 'Galmuri14'; font-weight: 400; font-size: 20px; text-align: center; }
+  .page .pic { text-align: center; margin: 6px 0 10px; font-size: 28px; }
+  .page .pic img { height: 46px; vertical-align: bottom; margin: 0 3px; }
+  .page b { color: #d7451d; font-weight: 700; }
+  .page ul { margin: 4px 0; padding-left: 18px; }
+  .dots { text-align: center; margin: 6px 0 2px; letter-spacing: 6px; font-size: 12px; color: #999; }
+  .dots .cur { color: #2a8c6e; }
+  .howto-btns { display: flex; gap: 10px; }
+  .howto-btns .btn { flex: 1; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="480" height="800"></canvas>
+
+  <div class="screen" id="intro">
+    <div class="title-box">
+      <div class="title">이삭RUN</div>
+      <div class="subtitle">논두렁 사계절 달리기</div>
+    </div>
+    <div class="press blink" id="pressStart">PRESS SPACE</div>
+    <div class="seasons-line"><span>🌸 봄 → ☀️ 여름 → 🍂 가을 → ❄️ 겨울</span></div>
+    <div class="intro-info">
+      <div class="coins" id="introCoins"></div>
+      <div class="best" id="introBest"></div>
+    </div>
+    <div class="ranks" id="introRanks"></div>
+    <div class="howto howto-run">Space(또는 클릭)로 점프 · 길게 누르면 더 높이 · 공중에서 한 번 더<br>장애물을 넘고 볍씨를 모아 사계절을 달려요</div>
+    <button id="howtoBtn">❓ 게임 방법</button>
+  </div>
+
+  <div class="screen overlay" id="howto">
+    <div class="panel">
+      <div class="page">
+        <h3>폴짝! 넘어가요</h3>
+        <div class="pic"><img src="img/rock.png"><img src="img/jar.png"><img src="img/scarecrow.png"></div>
+        이삭이는 혼자 달려요. <b>Space</b>(또는 ↑, 마우스 클릭)로 점프!
+        <ul><li><b>길게</b> 누르면 더 높이 뛰어요</li><li>공중에서 한 번 더 누르면 <b>2단 점프</b></li><li>↓ 키로 빨리 내려와요</li></ul>
+      </div>
+      <div class="page">
+        <h3>조심해요</h3>
+        <div class="pic"><img src="img/boar_runA.png"><img src="../game/img/bird_up.png"></div>
+        <ul><li>부딪히면 하트가 하나 줄어요. <b>하트 3개</b>가 다 없어지면 끝</li><li>여름부터 <b>멧돼지</b>가 마주 달려와요. 빨간 <b>!</b> 경고를 보세요</li><li>가을부터 <b>새</b>가 낮게 날아요. 새 밑으로는 <b>점프하지 말고</b> 그냥 달려요</li></ul>
+      </div>
+      <div class="page">
+        <h3>모으고, 써요</h3>
+        <div class="pic">🪙 🍓 <img src="../game/img/item_umbrella.png"><img src="../game/img/item_magnet.png"><img src="../game/img/item_golden_ear.png"></div>
+        <ul><li><b>볍씨 코인</b> +10 · 계절 작물 +50</li><li><b>우산</b>: 한 번 막아 줘요</li><li><b>자석</b>: 8초 동안 코인이 날아와요</li><li><b>황금 이삭</b>: 5초 동안 무적 질주! 장애물을 날려 버려요</li></ul>
+      </div>
+      <div class="page">
+        <h3>사계절을 달려요</h3>
+        <div class="pic">🌸 ☀️ 🍂 ❄️</div>
+        30초마다 계절이 바뀌고 점점 빨라져요.
+        <ul><li>겨울까지 버티면 <b>한 해 농사 완주</b>!</li><li>그다음엔 2년차, 더 빠르게</li><li>점수 = 달린 거리(m) + 모은 것</li><li>ESC 일시정지 · 근무확인 알람이 오면 자동으로 멈춰요</li></ul>
+      </div>
+      <div class="dots" id="dots"></div>
+      <div class="howto-btns">
+        <button class="btn secondary" id="skipBtn">건너뛰기</button>
+        <button class="btn" id="nextBtn">다음</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen overlay" id="pause">
+    <div class="panel">
+      <div class="panel-title" id="pauseTitle">일시정지</div>
+      <div class="panel-text" id="pauseText">ESC로 계속</div>
+      <button class="btn" id="resumeBtn">계속하기</button>
+    </div>
+  </div>
+
+  <div class="screen overlay" id="result">
+    <div class="panel">
+      <div class="panel-title" id="resultTitle">GAME OVER</div>
+      <div class="score-line">SCORE <span id="resultScore">0</span></div>
+      <div class="panel-text" id="resultBest"></div>
+      <div class="stat-grid" id="resultStats"></div>
+      <button class="btn" id="retryBtn">다시 하기</button>
+      <button class="btn share" id="shareBtn">📸 점수 카드 복사·저장</button>
+      <button class="btn secondary" id="closeBtn">닫기</button>
+    </div>
+  </div>
+
+  <button id="x" title="닫기">×</button>
+  <button id="mute" title="효과음 켜기/끄기 (M)">🔊</button>
+  <button id="bgm" title="배경음악 켜기/끄기 (B)">♪</button>
+</div>
+<script src="../game/card.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -113,7 +113,7 @@ function toast(text, color = '#fffbe6') { S.toasts.push({ text, color, t: 0 }); 
 async function refreshIntro() {
   const c = await bridge.getCoins(); S.coins = c.coins; S.cap = c.cap;
   S.best = await bridge.getBest();
-  $('introCoins').textContent = `🪙 코인 ${S.coins}/${S.cap} · 1판 = 1코인`;
+  $('introCoins').textContent = coinText(c);
   $('introBest').textContent = S.best ? `BEST ${S.best.toLocaleString()}` : 'BEST —';
   const hist = await bridge.getHistory();
   const top = [...hist].sort((a, b) => b.score - a.score).slice(0, 3);
@@ -142,7 +142,7 @@ function endGame(cleared) {
   $('resultStats').innerHTML = `<span>타수 <b>${spm}타/분</b></span><span>정확도 <b>${acc}%</b></span><span>최대 콤보 <b>${S.maxCombo}</b></span><span>쫓은 새 <b>${S.scared}마리</b></span>`;
   S.lastStats = { spm, acc };
   bridge.saveScore({ score: S.score, stage: S.stage, cleared, spm, acc, maxCombo: S.maxCombo, date: new Date().toISOString() });
-  bridge.getCoins().then(c => { S.coins = c.coins; S.cap = c.cap; $('retryBtn').textContent = `다시 하기 (🪙 ${S.coins}/${S.cap})`; $('retryBtn').disabled = S.coins <= 0; });
+  bridge.getCoins().then(c => { S.coins = c.coins; S.cap = c.cap; $('retryBtn').textContent = retryText(c); $('retryBtn').disabled = S.coins <= 0; });
   $('shareBtn').textContent = '📸 점수 카드 복사·저장';
   (cleared ? sfx.win : sfx.over)();
   bridge.result({ score: S.score, best: isBest, cleared });
@@ -356,23 +356,10 @@ function draw() {
 
 // ---------- 점수 카드 ----------
 async function shareCard() {
-  const cw = 640, ch = 360, c = document.createElement('canvas'); c.width = cw * 2; c.height = ch * 2;
-  const g = c.getContext('2d'); g.scale(2, 2);
-  const bg = IMG.bg; const s = cw / bg.naturalWidth; g.drawImage(bg, 0, -(bg.naturalHeight * s - ch) * 0.55, cw, bg.naturalHeight * s);
-  g.fillStyle = 'rgba(43,58,46,.72)'; g.fillRect(0, 0, cw, ch);
-  g.strokeStyle = '#fffbe6'; g.lineWidth = 6; g.strokeRect(14, 14, cw - 28, ch - 28);
-  const t = (str, x, y, size, color = '#fffbe6', font = 'Galmuri14') => { g.font = `${size}px ${font}`; g.textAlign = 'left'; g.textBaseline = 'top'; g.lineWidth = 5; g.strokeStyle = '#2b3a2e'; g.lineJoin = 'round'; g.strokeText(str, x, y); g.fillStyle = color; g.fillText(str, x, y); };
-  const im = IMG[S.hearts > 0 ? 'isak_win' : 'isak_over']; if (im.complete) g.drawImage(im, cw - 230, 110, 220, 220);
-  t('이삭이 타자게임', 36, 34, 34);
-  t('SCORE', 36, 96, 20, '#cfe9df');
-  t(S.score.toLocaleString(), 36, 118, 58, '#ffd93c');
   const st = S.lastStats || { spm: 0, acc: 100 };
-  t(`${S.hearts > 0 ? 'CLEAR ★' : 'GAME OVER'}  ·  ${st.spm}타/분  ·  정확도 ${st.acc}%  ·  콤보 ${S.maxCombo}`, 36, 196, 17, '#fff', 'Galmuri11');
-  const d = new Date();
-  t(`${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, 36, 226, 16, '#cfe9df', 'Galmuri11');
-  t(S.score >= S.best ? '🏆 개인 최고 기록' : `BEST ${S.best.toLocaleString()}`, 36, 262, 16, '#ffd93c', 'Galmuri11');
-  t('이삭이 데스크톱 펫 · 농촌진흥청', 36, ch - 44, 13, '#cfe9df', 'Galmuri11');
-  const r = await bridge.shareCard(c.toDataURL('image/png'));
+  const dataUrl = scoreCard({ title: '이삭이 타자게임', score: S.score, best: S.best, bg: IMG.bg,
+    line: `${S.hearts > 0 ? 'CLEAR ★' : 'GAME OVER'}  ·  ${st.spm}타/분  ·  정확도 ${st.acc}%  ·  콤보 ${S.maxCombo}` });
+  const r = await bridge.shareCard(dataUrl);
   $('shareBtn').textContent = r.copied ? '✅ 복사했어요 · 메신저에 붙여넣기' : '✅ 저장했어요';
 }
 

@@ -10,7 +10,14 @@ contextBridge.exposeInMainWorld('game', {
   saveScore: (rec) => ipcRenderer.send('save-score', { kind, rec }),
   getHistory: () => ipcRenderer.invoke('get-history', kind),
   shareCard: (dataUrl) => ipcRenderer.invoke('share-card', dataUrl),
+  getName: () => ipcRenderer.invoke('get-name'),
+  setName: (name) => ipcRenderer.send('set-name', name),
   result: (r) => ipcRenderer.send('game-result', { kind, ...r }),
   close: () => ipcRenderer.send('close-game'),
   onAlarm: (cb) => ipcRenderer.on('alarm', (_e, info) => cb(info)),
+});
+// 게임만 모은 앱(app/arcade)의 게임 고르는 화면에서만 씀
+contextBridge.exposeInMainWorld('arcade', {
+  list: () => ipcRenderer.invoke('arcade-list'),
+  open: (kind) => ipcRenderer.send('arcade-open', kind),
 });
