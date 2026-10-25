@@ -1,0 +1,22 @@
+{
+  "appId": "kr.go.rda.isak-games",
+  "productName": "IsakGames",
+  "extraMetadata": { "main": "app/arcade/main.js" },
+  "files": [
+    "app/arcade/**/*",
+    "app/game/**/*",
+    "app/typing/**/*",
+    "app/merge/**/*",
+    "app/pang/**/*",
+    "app/runner/**/*",
+    "app/renderer/img/**/*",
+    "package.json"
+  ],
+  "directories": { "output": "dist-arcade" },
+  "mac": {
+    "target": [{ "target": "dir", "arch": ["arm64"] }],
+    "icon": "app/renderer/img/idle.png",
+    "category": "public.app-category.games",
+    "identity": null
+  }
+}
