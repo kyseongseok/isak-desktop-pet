@@ -97,7 +97,7 @@ function isWorkday(d = new Date()) {
 }
 function envForRenderer() {
   const a = currentDisplay().workArea;
-  return { width: a.width, height: a.height, isWorkday: isWorkday(), state };
+  return { width: a.width, height: a.height, isWorkday: isWorkday(), state, tripTest: process.env.ISAK_TRIP || null };   // ISAK_TRIP: 개발용, 특별 이동만 계속 (drone|skate|cart|all)
 }
 function sendEnv() { if (win) win.webContents.send('env', envForRenderer()); }
 function send(channel, payload) { if (win) win.webContents.send(channel, payload); }
@@ -160,21 +160,26 @@ const GAMES = {
   pang: { title: '이삭이 수확팡', dir: 'pang' },
   runner: { title: '이삭RUN', dir: 'runner' },
 };
-let gameWin = null;
-function openGame(kind = 'orchard') {
-  if (!GAMES[kind]) kind = 'orchard';
+// 게임 창: '미니게임 모음'(게임 고르는 화면, app/arcade)으로 열리고, 고른 게임을 같은 창에 띄움
+let gameWin = null, gameKind = null;   // gameKind: 지금 띄운 게임 (null이면 고르는 화면)
+function loadGamePage(kind) {
+  gameKind = GAMES[kind] ? kind : null;
+  if (gameKind) gameWin.loadFile(path.join(__dirname, GAMES[kind].dir, 'index.html'), { query: { kind } });
+  else gameWin.loadFile(path.join(__dirname, 'arcade', 'index.html'));
+}
+function openGame(kind = 'menu') {
   if (gameWin) { gameWin.focus(); return; }
   const a = currentDisplay().workArea;
   const H = Math.min(800, a.height - 60), W = Math.round(H * 480 / 800);   // 작은 화면·배율 큰 PC에서도 다 보이게
   gameWin = new BrowserWindow({
     width: W, height: H, useContentSize: true, x: Math.round(a.x + (a.width - W) / 2), y: Math.round(a.y + (a.height - H) / 2),
-    resizable: false, maximizable: false, fullscreenable: false, title: GAMES[kind].title,
+    resizable: false, maximizable: false, fullscreenable: false, title: GAMES[kind] ? GAMES[kind].title : '이삭이 미니게임',
     backgroundColor: '#9fd9ff', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'game', 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   gameWin.setMenuBarVisibility(false);
-  gameWin.loadFile(path.join(__dirname, GAMES[kind].dir, 'index.html'), { query: { kind } });
-  gameWin.on('closed', () => { gameWin = null; send('game-closed'); });
+  loadGamePage(kind);
+  gameWin.on('closed', () => { gameWin = null; gameKind = null; send('game-closed'); });
 }
 function gameRec(kind) {
   if (!state.games) state.games = {};
@@ -191,7 +196,10 @@ ipcMain.handle('get-words', () => {
   }
   return out;
 });
-ipcMain.on('close-game', () => { if (gameWin) gameWin.close(); });
+// 게임의 ×는 고르는 화면으로, 고르는 화면의 ×는 창 닫기
+ipcMain.on('close-game', () => { if (!gameWin) return; if (gameKind) loadGamePage(null); else gameWin.close(); });
+ipcMain.handle('arcade-list', () => Object.entries(GAMES).map(([kind, g]) => ({ kind, title: g.title, best: gameRec(kind).best })));
+ipcMain.on('arcade-open', (_e, kind) => { if (gameWin) loadGamePage(kind); });
 ipcMain.on('game-result', (_e, r) => { send('game-result', r); });      // 결과를 펫에게 전달 (축하 리액션)
 ipcMain.on('alarm-stage', (_e, info) => { if (gameWin) gameWin.webContents.send('alarm', info); });   // 알람이 오면 게임 일시정지
 ipcMain.on('save-best', (_e, { kind, best }) => { const g = gameRec(kind); g.best = Math.max(g.best, best); saveState(); });
@@ -272,11 +280,7 @@ function updateTray() {
   const ot = state.ot.status;
   const menu = Menu.buildFromTemplate([
     { label: `🌾 이삭이 · 코인 ${state.coins}/${COIN_CAP}`, enabled: false },
-    { label: '🎮 [미니게임] 과수원을 지켜라', click: () => openGame('orchard') },
-    { label: '⌨️ [미니게임] 이삭이 타자게임', click: () => openGame('typing') },
-    { label: '🍉 [미니게임] 이삭이 수확 합치기', click: () => openGame('merge') },
-    { label: '🍎 [미니게임] 이삭이 수확팡', click: () => openGame('pang') },
-    { label: '🏃 [미니게임] 이삭RUN', click: () => openGame('runner') },
+    { label: '🎮 미니게임 모음', click: () => openGame() },
     { label: otLabel(), enabled: false },
     { type: 'separator' },
     { label: '초과근무 시작 (지금 물어보기)', visible: ['none', 'asked', 'declined', 'done'].includes(ot), click: () => send('command', { type: 'ask' }) },
@@ -335,7 +339,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   applyAutostart();
-  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (orchard|typing|merge|pang|runner)
+  if (process.env.ISAK_OPEN_GAME) setTimeout(() => openGame(process.env.ISAK_OPEN_GAME), 1500);   // 개발용: 게임 창 바로 열기 (menu|orchard|typing|merge|pang|runner)
   if (process.env.ISAK_TEST_ALARM) setTimeout(() => send('command', { type: 'alarm-test' }), 4000);   // 개발용: 알람 흐름 자동 테스트
 });
 app.on('window-all-closed', () => app.quit());

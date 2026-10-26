@@ -32,10 +32,11 @@ function gameRec(kind) {
 }
 
 // ---------- 창 ----------
-let win = null;
-const showMenu = () => win.loadFile(path.join(__dirname, 'index.html'));
+let win = null, current = null;   // current: 지금 띄운 게임 (null이면 고르는 화면)
+const showMenu = () => { current = null; win.loadFile(path.join(__dirname, 'index.html')); };
 function openGame(kind) {
   if (!GAMES[kind]) return;
+  current = kind;
   win.loadFile(path.join(APP_DIR, GAMES[kind].dir, 'index.html'), { query: { kind } });
 }
 function createWindow() {
@@ -52,7 +53,7 @@ function createWindow() {
 // ---------- 게임이 쓰는 것들 (펫 앱과 같은 이름의 통로) ----------
 ipcMain.handle('arcade-list', () => Object.entries(GAMES).map(([kind, g]) => ({ kind, title: g.title, best: gameRec(kind).best })));
 ipcMain.on('arcade-open', (_e, kind) => openGame(kind));
-ipcMain.on('close-game', () => showMenu());
+ipcMain.on('close-game', () => { if (current) showMenu(); else win.close(); });   // 게임 × → 고르는 화면, 고르는 화면 × → 끝
 ipcMain.handle('get-coins', () => ({ coins: 99, cap: 99, daily: 0, free: true }));
 ipcMain.handle('spend-coin', () => ({ ok: true, coins: 99, cap: 99, free: true }));
 ipcMain.on('game-result', () => {});   // 펫이 없으니 축하 리액션도 없음

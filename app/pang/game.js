@@ -19,7 +19,7 @@ const MOVE = 620, GRAV = 3200, CLEAR_SEC = 0.2;          // 바꾸기 속도(px/
 const BOMB_R = 2;                                        // 비료: 주변 5×5
 // 시간 보너스: 아이템이 터지면(트랙터·비료 +2초, 황금 이삭 +4초), 10콤보마다 +2초
 // 한 판에 더해지는 시간 상한: 지금은 테스트로 없앰 (다시 막으려면 숫자로, 예: 30)
-const TIME_BONUS = { row: 2, col: 2, bomb: 2, gold: 4 }, COMBO_TIME = 2, TIME_BONUS_MAX = Infinity;
+const TIME_BONUS = { row: 2, col: 2, bomb: 2, drone: 2, gold: 4 }, COMBO_TIME = 2, TIME_BONUS_MAX = Infinity;
 
 // ---------- 작물 ----------
 // img: app/pang/img/<key>.png 가 있으면 그걸 쓰고, 없으면 fallback 그림, 그것도 없으면 직접 그림
@@ -32,7 +32,7 @@ const CROPS = [
   { key: 'radish',     name: '무',   color: '#f4f1ea' },
 ];
 const GOLD = -1;   // 황금 이삭은 어떤 작물과도 줄이 안 맞음
-const ITEM = { row: '트랙터', col: '트랙터', bomb: '비료', gold: '황금 이삭' };
+const ITEM = { row: '트랙터', col: '트랙터', bomb: '비료', drone: '드론', gold: '황금 이삭' };
 
 // ---------- 이미지 ----------
 const IMG = {};
@@ -44,6 +44,9 @@ function loadImg(name, src, fallback) {
 ['bg', 'isak_basket', 'isak_happy', 'isak_shout', 'isak_win', 'isak_over'].forEach(n => loadImg(n, `../game/img/${n}.png`));
 CROPS.forEach(t => loadImg(t.key, `img/${t.key}.png`, t.fallback));
 loadImg('golden', 'img/golden.png', '../game/img/item_golden_ear.png');
+['item_tractor', 'item_fertilizer', 'item_drone'].forEach(n => loadImg(n, `img/${n}.png`));
+// 아이템 그림 (없으면 이모지)
+const ITEM_ICON = { row: ['item_tractor', '🚜'], col: ['item_tractor', '🚜'], bomb: ['item_fertilizer', '💥'], drone: ['item_drone', '🚁'] };
 const ready = (im) => im && im.complete && im.naturalWidth;
 
 // ---------- 소리 ----------
@@ -61,6 +64,7 @@ const sfx = (() => {
     swap() { tone(520, 0.05, 'triangle', 0.15, 120); },
     fail() { tone(220, 0.08, 'square', 0.15, -60); tone(200, 0.08, 'square', 0.15, -60, 0.09); },
     pop(combo) { const f = 440 * Math.pow(1.06, Math.min(combo, 24)); tone(f, 0.09, 'square', 0.2, f * 0.6); },
+    drone() { tone(180, 0.35, 'sawtooth', 0.12, 40); tone(186, 0.35, 'sawtooth', 0.12, 40); },
     made() { [660, 880, 1100].forEach((f, i) => tone(f, 0.08, 'square', 0.2, 0, i * 0.06)); },
     tractor() { tone(90, 0.35, 'sawtooth', 0.25, 60); tone(140, 0.3, 'square', 0.12, -40, 0.05); },
     bomb() { tone(120, 0.3, 'sawtooth', 0.32, -80); tone(60, 0.35, 'triangle', 0.35, -20); },
@@ -128,7 +132,8 @@ function makeBoard() {
       for (let c = 0; c < N; c++) {
         let t;
         do t = Math.floor(Math.random() * CROPS.length);
-        while ((c >= 2 && S.grid[r][c - 1].t === t && S.grid[r][c - 2].t === t) || (r >= 2 && S.grid[r - 1][c].t === t && S.grid[r - 2][c].t === t));
+        while ((c >= 2 && S.grid[r][c - 1].t === t && S.grid[r][c - 2].t === t) || (r >= 2 && S.grid[r - 1][c].t === t && S.grid[r - 2][c].t === t) ||
+               (r >= 1 && c >= 1 && S.grid[r - 1][c].t === t && S.grid[r][c - 1].t === t && S.grid[r - 1][c - 1].t === t));   // 줄 3개·네모 4개 없이 시작
         S.grid[r].push(newTile(t, r, c, cy(r) - (N + 1) * C));   // 시작할 때 위에서 우수수
       }
     }
@@ -153,6 +158,12 @@ function findRuns() {
         j = e;
       }
     }
+  }
+  // 네모 4개 (2×2)
+  for (let r = 0; r < N - 1; r++) for (let c = 0; c < N - 1; c++) {
+    const t = typeAt(r, c);
+    if (t !== null && typeAt(r, c + 1) === t && typeAt(r + 1, c) === t && typeAt(r + 1, c + 1) === t)
+      out.push({ dir: 'sq', t, cells: [[r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1]] });
   }
   return out;
 }
@@ -283,8 +294,9 @@ function tapItem(r, c) {
 
 // ---------- 수확 ----------
 // 맞은 줄들 → 수확할 칸 + 새로 생길 아이템
+// 아이템 우선순위: 5개 줄 황금 이삭 > ㄱ·T자 비료 > 4개 줄 트랙터 > 네모 드론
 function resolve(runs, prefer) {
-  // 칸을 공유하는 줄끼리 한 묶음 (ㄱ·T자)
+  // 칸을 공유하는 줄끼리 한 묶음 (ㄱ·T자, 줄에 붙은 네모)
   const groups = [];
   for (const run of runs) {
     const hit = groups.filter(g => g.runs.some(o => o.cells.some(p => run.cells.some(q => p[0] === q[0] && p[1] === q[1]))));
@@ -296,15 +308,17 @@ function resolve(runs, prefer) {
   for (const g of groups) {
     const cells = new Map();
     for (const run of g.runs) for (const [r, c] of run.cells) { const k = key(r, c); seed.add(k); cells.set(k, (cells.get(k) || 0) + 1); }
-    const longest = g.runs.reduce((m, run) => run.cells.length > m.cells.length ? run : m);
-    const cross = g.runs.some(x => x.dir === 'h') && g.runs.some(x => x.dir === 'v');
-    const sp = longest.cells.length >= 5 ? 'gold' : cross ? 'bomb' : longest.cells.length === 4 ? (longest.dir === 'h' ? 'row' : 'col') : null;
+    const lines = g.runs.filter(x => x.dir !== 'sq'), square = g.runs.find(x => x.dir === 'sq');
+    const longest = lines.length ? lines.reduce((m, run) => run.cells.length > m.cells.length ? run : m) : null;
+    const len = longest ? longest.cells.length : 0;
+    const cross = lines.some(x => x.dir === 'h') && lines.some(x => x.dir === 'v');
+    const sp = len >= 5 ? 'gold' : cross ? 'bomb' : len === 4 ? (longest.dir === 'h' ? 'row' : 'col') : square ? 'drone' : null;
     if (!sp) continue;
     const mine = prefer.find(p => cells.has(key(p[0], p[1])));
     let pos = mine ? key(mine[0], mine[1]) : null;
     if (pos === null && sp === 'bomb') pos = [...cells].find(([, n]) => n > 1)[0];
-    if (pos === null) { const m = longest.cells[Math.floor(longest.cells.length / 2)]; pos = key(m[0], m[1]); }
-    specials.push({ k: pos, t: sp === 'gold' ? GOLD : longest.t, sp });
+    if (pos === null) { const base = sp === 'drone' ? square : longest, m = base.cells[Math.floor(base.cells.length / 2)]; pos = key(m[0], m[1]); }
+    specials.push({ k: pos, t: sp === 'gold' ? GOLD : (longest || square).t, sp });
   }
   startClear(expand([...seed]), specials);
 }
@@ -326,10 +340,22 @@ function expand(seed) {
       const count = new Array(CROPS.length).fill(0);
       for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const o = S.grid[i][j]; if (o && o.t !== GOLD && !set.has(key(i, j))) count[o.t]++; }
       goldBeams(r, c, count.indexOf(Math.max(...count)), add);
+    } else if (t.sp === 'drone') {   // 드론: 판 여기저기 세 곳으로 날아가 + 모양으로 수확
+      for (const [tr, tc] of droneTargets(3, set)) { dronePlus(tr, tc, add); droneFx(r, c, tr, tc); }
+      sfx.drone();
     }
   }
   return set;
 }
+// 드론이 갈 곳: 아직 수확 안 할 칸 중 무작위
+function droneTargets(n, exclude) {
+  const pool = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (S.grid[i][j] && !S.grid[i][j].dying && !exclude.has(key(i, j))) pool.push([i, j]);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, n);
+}
+function dronePlus(r, c, add) { add(r, c); for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) add(r + dr, c + dc); }
+function droneFx(r, c, tr, tc) { S.fx.push({ kind: 'drone', x1: cx(c), y1: cy(r), x2: cx(tc), y2: cy(tr), t: 0, life: 0.45 }); }
 function goldBeams(r, c, type, add) {
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     const o = S.grid[i][j];
@@ -352,14 +378,22 @@ function itemCombo(a, b) {
     const [g, gp, o] = ta.sp === 'gold' ? [ta, a, tb] : [tb, b, ta];
     g.used = true; S.used++; addTime(TIME_BONUS.gold, g.x, g.y);
     if (o.sp) {   // 황금 이삭 + 아이템: 그 작물이 전부 같은 아이템으로 변해서 터짐
-      for (const row of S.grid) for (const x of row) if (x.t === o.t && !x.sp) x.sp = o.sp === 'bomb' ? 'bomb' : (Math.random() < 0.5 ? 'row' : 'col');
+      for (const row of S.grid) for (const x of row) if (x.t === o.t && !x.sp) x.sp = o.sp === 'row' || o.sp === 'col' ? (Math.random() < 0.5 ? 'row' : 'col') : o.sp;
       toast(`${CROPS[o.t].name}이 전부 ${ITEM[o.sp]}로!`, '#ffd93c');
     }
     goldBeams(gp[0], gp[1], o.t, add);
   } else {
     ta.used = tb.used = true; S.used += 2; S.score += 40; addTime(TIME_BONUS[ta.sp] + TIME_BONUS[tb.sp], cx(c), cy(r));
-    const kinds = [ta.sp, tb.sp].map(s => s === 'bomb' ? 'bomb' : 'line');
-    if (kinds[0] === 'line' && kinds[1] === 'line') {   // 트랙터 둘: 십자
+    const kinds = [ta.sp, tb.sp].map(s => s === 'bomb' ? 'bomb' : s === 'drone' ? 'drone' : 'line');
+    if (kinds.includes('drone')) {   // 드론 + 아이템: 그 아이템을 실어 세 곳에 떨어뜨림 (드론 둘이면 여섯 곳을 + 모양으로)
+      const other = kinds[0] === 'drone' ? tb : ta, both = kinds[0] === 'drone' && kinds[1] === 'drone';
+      for (const [tr, tc] of droneTargets(both ? 6 : 3, seed)) {
+        if (both) dronePlus(tr, tc, add);
+        else { const x = S.grid[tr][tc]; x.sp = other.sp === 'bomb' ? 'bomb' : (Math.random() < 0.5 ? 'row' : 'col'); x.used = false; add(tr, tc); }
+        droneFx(r, c, tr, tc);
+      }
+      sfx.drone();
+    } else if (kinds[0] === 'line' && kinds[1] === 'line') {   // 트랙터 둘: 십자
       for (let i = 0; i < N; i++) { add(r, i); add(i, c); }
       S.fx.push({ kind: 'sweep', dir: 'row', r, c, t: 0, life: 0.45 }, { kind: 'sweep', dir: 'col', r, c, t: 0, life: 0.45 }); sfx.tractor();
     } else if (kinds[0] === 'bomb' && kinds[1] === 'bomb') {   // 비료 둘: 7×7
@@ -412,7 +446,7 @@ function finishClear() {
     t.sp = p.sp; t.pop = 1; S.grid[r][c] = t; S.made++;
     if (p.sp === 'gold') S.goldens++;
     burst(t.x, t.y, '#fffbe6', 12, 200);
-    say({ row: '트랙터 출동 준비!', col: '트랙터 출동 준비!', bomb: '비료 한 포대!', gold: '황금 이삭이다!!' }[p.sp], 1.6, p.sp === 'gold' ? 'isak_win' : 'isak_happy');
+    say({ row: '트랙터 출동 준비!', col: '트랙터 출동 준비!', bomb: '비료 한 포대!', drone: '드론 띄울 준비!', gold: '황금 이삭이다!!' }[p.sp], 1.6, p.sp === 'gold' ? 'isak_win' : 'isak_happy');
   }
   if (S.pending.length) sfx.made();
   S.pending = [];
@@ -548,6 +582,8 @@ function text(str, x, y, { size = 16, color = '#fff', align = 'left', font = 'Ga
   ctx.fillStyle = color; ctx.fillText(str, x, y);
 }
 const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+function drawImgAt(name, x, y, size) { const im = IMG[name]; if (!ready(im)) return false; ctx.drawImage(im, x - size / 2, y - size / 2, size, size); return true; }
+function itemIcon(sp, x, y, size) { const [name, ch] = ITEM_ICON[sp]; if (!drawImgAt(name, x, y, size)) emoji(ch, x, y, size * 0.75); }
 function emoji(ch, x, y, size) { ctx.font = `${size}px ${EMOJI}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, x, y); }
 function shade(hex, k) {   // k>0 밝게, k<0 어둡게
   const n = parseInt(hex.slice(1), 16), f = (c) => Math.max(0, Math.min(255, Math.round(k > 0 ? c + (255 - c) * k : c * (1 + k))));
@@ -621,11 +657,10 @@ function drawTile(t, r, c) {
   }
   drawCrop(t.t, x, y, size, alpha);
   if (t.sp && !t.dying) {
-    const badge = { row: '🚜', col: '🚜', bomb: '💥', gold: '' }[t.sp];
-    if (badge) {
+    if (ITEM_ICON[t.sp]) {
       ctx.fillStyle = '#fffbe6'; ctx.strokeStyle = '#2b3a2e'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(x + 17, y + 17, 11, 0, 6.29); ctx.fill(); ctx.stroke();
-      emoji(badge, x + 17, y + 18, 14);
+      ctx.beginPath(); ctx.arc(x + 16, y + 16, 13, 0, 6.29); ctx.fill(); ctx.stroke();
+      itemIcon(t.sp, x + 16, y + 16, 24);
       text(t.sp === 'row' ? '↔' : t.sp === 'col' ? '↕' : '', x - 17, y + 7, { size: 14, align: 'center', color: '#fff' });
     } else {   // 황금 이삭: 반짝이
       const a = S.t * 3;
@@ -661,13 +696,17 @@ function drawFx() {
       for (const s of [-1, 1]) {
         const x = f.dir === 'row' ? cx(f.c) + s * d : cx(f.c), y = f.dir === 'row' ? cy(f.r) : cy(f.r) + s * d;
         if (x < BX - 20 || x > BX + N * C + 20 || y < BY - 20 || y > BY + N * C + 20) continue;
-        ctx.save(); ctx.translate(x, y); if (f.dir === 'row' && s > 0) ctx.scale(-1, 1); if (f.dir === 'col') ctx.rotate(s * Math.PI / 2);
-        emoji('🚜', 0, 0, 34); ctx.restore();
+        ctx.save(); ctx.translate(x, y); if (f.dir === 'row' && s > 0) ctx.scale(-1, 1); if (f.dir === 'col') ctx.rotate(-s * Math.PI / 2);   // 그림은 왼쪽을 보고 있음
+        itemIcon('row', 0, 0, 44); ctx.restore();
       }
     } else if (f.kind === 'ring') {
       ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#ff8c28'; ctx.lineWidth = 10 * (1 - k) + 2;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.R * (0.3 + 0.7 * k), 0, 6.29); ctx.stroke();
       ctx.fillStyle = 'rgba(255,220,120,.35)'; ctx.fill();
+    } else if (f.kind === 'drone') {   // 드론이 날아가 도착하면 + 모양으로 번쩍
+      const m = Math.min(1, k * 1.6), x = f.x1 + (f.x2 - f.x1) * m, y = f.y1 + (f.y2 - f.y1) * m - Math.sin(m * Math.PI) * 40;
+      if (m >= 1) { ctx.globalAlpha = 1 - (k - 0.625) / 0.375; ctx.fillStyle = 'rgba(180,240,255,.8)'; ctx.fillRect(f.x2 - C * 1.5, f.y2 - C / 2 + 8, C * 3, C - 16); ctx.fillRect(f.x2 - C / 2 + 8, f.y2 - C * 1.5, C - 16, C * 3); }
+      ctx.globalAlpha = 1; itemIcon('drone', x, y, 44);
     } else if (f.kind === 'beam') {
       ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#ffe680'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x1 + (f.x2 - f.x1) * Math.min(1, k * 3), f.y1 + (f.y2 - f.y1) * Math.min(1, k * 3)); ctx.stroke();
@@ -730,8 +769,10 @@ function draw() {
   ctx.fillStyle = 'rgba(255,251,230,.88)'; roundRect(30, TY + 40, W - 60, 52, 8); ctx.fill();
   ctx.strokeStyle = '#2b3a2e'; ctx.lineWidth = 2; ctx.stroke();
   ctx.fillStyle = '#2b3a2e';
-  [['🚜', '4개 한 줄'], ['💥', 'ㄱ·T자'], ['🌾', '5개 한 줄']].forEach(([e, s], i) => {
-    const x = 60 + i * 128; emoji(e, x, TY + 58, 18); text(s, x + 16, TY + 50, { size: 14, outline: null, color: '#2b3a2e' });
+  [['row', '4개 줄'], ['bomb', 'ㄱ·T자'], ['drone', '네모'], ['gold', '5개 줄']].forEach(([sp, s], i) => {
+    const x = 50 + i * 104;
+    if (sp === 'gold') { if (!drawImgAt('golden', x, TY + 58, 24)) emoji('🌾', x, TY + 58, 18); } else itemIcon(sp, x, TY + 58, 26);
+    text(s, x + 15, TY + 50, { size: 13, outline: null, color: '#2b3a2e' });
   });
   text('클릭해도 터짐 · 터지면 +2초 (황금 이삭 +4초)', W / 2, TY + 72, { size: 12, align: 'center', outline: null, color: '#556' });
 }

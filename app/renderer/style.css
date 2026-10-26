@@ -24,6 +24,13 @@ body { font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-s
   cursor: nesw-resize; display: none;
 }
 #pet.resizing .handle { display: block; }
+/* 특별 이동 소품 (드론·손수레): 이삭이 뒤에, 마우스는 통과 */
+#prop {
+  position: absolute; left: 0; top: 0; z-index: 19; pointer-events: none; display: none;
+  transition: opacity .5s; transform-origin: 50% 100%;
+}
+/* 수레를 밀 때 화면 쪽 주먹(push_fist.png)을 수레 위에 한 겹 더: 손이 손잡이를 가리며 쥔 모양 */
+#hands { position: absolute; left: 0; top: 0; z-index: 22; pointer-events: none; display: none; transform-origin: 50% 95%; }
 #shadow {
   position: absolute; width: 121px; height: 18px; border-radius: 50%; transform-origin: 50% 50%;
   background: radial-gradient(ellipse at center, rgba(0,0,0,.28), rgba(0,0,0,0) 70%);

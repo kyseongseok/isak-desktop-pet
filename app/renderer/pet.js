@@ -10,13 +10,14 @@ const GRAVITY = 2400;        // px/s^2
 const BOUNCE = 0.62;
 const FRICTION = 0.86;
 const WALK_SPEED = 70;       // px/s
-const FACES_LEFT = { runA: true, runB: true, fly: true };   // 원본이 왼쪽을 보는 이미지
+const FACES_LEFT = { runA: true, runB: true, fly: true, skate: true, skateB: true, skateStop: true, push: true };   // 원본이 왼쪽을 보는 이미지
 const MIN = 60 * 1000;
 const ASK_AT = 17 * 60 + 55;          // 평일 질문 시각 (분)
 const AWAY_REASK_SEC = 10 * 60;       // 이만큼 비웠다 돌아오면 다시 물어봄
 
 const IMAGES = ['idle','blink','sleep','tired','research','runA','runB','curious','produce',
-                'cheer','hello','farm','fly','think','alarm','best','surprise','angry'];
+                'cheer','hello','farm','fly','think','alarm','best','surprise','angry',
+                'hang','skate','skateB','skateStop','push','push_fist','drone_bar_0','drone_bar_1','drone_bar_2','drone_bar_3','cart_spring','cart_summer','cart_autumn','cart_winter'];
 IMAGES.forEach(n => { const i = new Image(); i.src = `img/${n}.png`; });
 
 const pet = document.getElementById('pet');
@@ -34,7 +35,7 @@ let obstacles = [];          // 바탕화면 아이콘 사각형 (윈도우 전�
 const s = {
   x: innerWidth * 0.4, y: innerHeight,
   vx: 0, vy: 0,
-  mode: 'idle',              // idle | walk | drag | fly | emote
+  mode: 'idle',              // idle | walk | drag | fly | emote | trip(특별 이동)
   dir: 1, frame: 'idle',
   sq: 0, sqV: 0, tilt: 0, tiltV: 0, tiltTarget: 0,
   emoteUntil: 0, emoteName: null,
@@ -160,6 +161,127 @@ function startWalk() {
   if (s.x < 200) s.dir = 1;
   if (s.x > env.width - 320) s.dir = -1;
   s.walkUntil = performance.now() + 2500 + Math.random() * 3500;
+}
+
+// ---------- 특별 이동: 드론에 매달려 날기 · 롤러블레이드 · 손수레 ----------
+// 걷기를 시작할 때 가끔(TRIP_CHANCE) 대신 나옴. 소품(드론·수레)은 #prop 그림 하나를 이삭이 뒤에 붙여서 움직임
+const TRIP_CHANCE = 0.15;
+const prop = document.getElementById('prop'), hands = document.getElementById('hands');
+let trip = null, tripTest = null, tripCycle = 0, droneAway = null, propPos = null;
+const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; };
+// 그림 속 손 위치 (이미지 한 변 대비): 매달린 주먹 높이, 미는 앞 주먹의 가로 위치. 소품 크기도 이삭이 크기 대비
+// 드론은 프로펠러가 도는 4장(drone_bar_0~3.png, 304×285)을 빠르게 번갈아 보여 줌. 막대는 그림 안 높이 271
+const HANG_FIST_Y = 0.205, DRONE_W = 0.736, DRONE_H = 285 / 304, DRONE_BAR = 271 / 285, PROP_FPS = 30;
+// 수레: 원본 그림(cart_*.png)을 이삭이 앞에, 이삭이 크기 대비 CART_W 폭으로. 왼쪽 끝 = 이삭이 그림 왼쪽 + CART_OFF
+// 손잡이가 주먹보다 높아서, 바퀴(수레 폭의 17% 지점)를 축으로 손잡이 쪽을 CART_TILT만큼 숙여 높이를 맞춤
+const CART_W = 0.38, CART_OFF = 0.05, CART_TILT = 6 * Math.PI / 180, CART_WHEEL = 0.17;
+const CART_LOADS = ['spring', 'summer', 'autumn', 'winter'];         // 수레 짐: 모종·수박·볏짚·배추 중 무작위
+function startTrip(kind) {
+  if (s.mode === 'drag' || s.mode === 'fly') return false;
+  const L = SIZE * 0.32, R = env.width - SIZE * 0.32;
+  s.dir = s.x - L > R - s.x ? -1 : 1;                                 // 넓은 쪽으로
+  const room = (s.dir > 0 ? R - s.x : s.x - L) - (kind === 'cart' ? SIZE * 0.3 : 0);    // 수레는 앞으로 나온 만큼 여유
+  if (room < SIZE * 1.2) return false;
+  const [lo, hi] = { drone: [2.5, 5], skate: [2.5, 5], cart: [1.5, 3] }[kind];
+  const dist = Math.min(room - 10, SIZE * (lo + Math.random() * (hi - lo)));
+  hush();
+  s.mode = 'trip'; s.emoteName = null; s.vx = s.vy = 0; s.tiltTarget = 0;
+  trip = { kind, phase: { drone: 'arrive', skate: 'push', cart: 'go' }[kind], t: 0, x0: s.x, target: s.x + s.dir * dist, v: 0, bob: 0, droneY: 0, pushes: 0 };
+  droneAway = null;
+  prop.style.opacity = 1; prop.style.display = kind === 'skate' ? 'none' : 'block';
+  if (kind === 'drone') prop.src = 'img/drone_bar_0.png';
+  if (kind === 'cart') prop.src = `img/cart_${pick(CART_LOADS)}.png`;
+  return true;
+}
+function endTrip(now) {
+  const t = trip; trip = null;
+  if (!t) return;
+  if (t.kind === 'drone') droneAway = { t: 0 };                       // 드론은 위로 날아가 사라짐
+  else if (t.kind === 'cart') { prop.style.opacity = 0; setTimeout(() => { if (!trip) prop.style.display = 'none'; }, 500); }
+  s.nextAuto = now + (tripTest ? 2500 : 4000 + Math.random() * 3000);
+  isak.saveState({ xRatio: s.x / env.width });
+}
+function tripTick(dt, now, G) {
+  const T = trip; T.t += dt;
+  const next = (phase) => { T.phase = phase; T.t = 0; };
+  const finish = (face, line) => {
+    s.mode = 'idle'; setFrame('idle'); poke(6); endTrip(now);
+    if (line && Math.random() < 0.4) { emote(face, 2200, { poke: 3 }); say(line, { ms: 2500 }); }
+  };
+  if (T.kind === 'drone') {
+    const lift = Math.min(SIZE * 1.4, G * 0.35);
+    if (T.phase === 'arrive') {                 // 드론이 위에서 내려옴, 이삭이는 올려다봄
+      setFrame('curious'); T.droneY = -(1 - ease(T.t / 0.9)) * G;
+      if (T.t > 0.9) { next('grab'); T.droneY = 0; setFrame('hang'); poke(5); }
+    } else if (T.phase === 'grab') { if (T.t > 0.35) next('lift'); }
+    else if (T.phase === 'lift') {
+      s.y = G - lift * ease(T.t / 1.1);
+      if (T.t > 1.1) { next('cruise'); T.x0 = s.x; }
+    } else if (T.phase === 'cruise') {          // 살랑살랑 흔들리며 가로질러 감
+      const dur = Math.abs(T.target - T.x0) / 150 + 0.8, k = ease(T.t / dur);
+      s.x = T.x0 + (T.target - T.x0) * k;
+      s.y = G - lift + Math.sin(T.t * 2.6) * 8;
+      s.tiltTarget = s.dir * 0.1 * Math.sin(Math.PI * k) + Math.sin(T.t * 3) * 0.04;
+      if (T.t > dur) { next('land'); T.y0 = s.y; s.tiltTarget = 0; }
+    } else if (T.phase === 'land') {
+      s.y = T.y0 + (G - T.y0) * ease(T.t / 1.1);
+      if (T.t > 1.1) { s.y = G; finish('hello', '드론 타니까 시원해요~ 🚁'); }
+    }
+  } else if (T.kind === 'skate') {
+    const remain = (T.target - s.x) * s.dir, brakeDist = T.v * T.v / (2 * 600);
+    if (T.phase !== 'brake' && (remain <= brakeDist + 5 || T.pushes > 4)) next('brake');
+    if (T.phase === 'push') {                   // 발 차기: 빨라짐
+      // 뒷다리를 높이·낮게 번갈아 차는 두 그림(skate·skateB)으로 다리가 움직이게
+      setFrame(Math.floor(T.t / 0.14) % 2 ? 'skateB' : 'skate'); T.v = Math.min(300, T.v + 700 * dt); s.tiltTarget = 0.14 * s.dir; T.bob = Math.abs(Math.sin(T.t * 22)) * 3;
+      if (T.t > 0.56) { next('glide'); T.pushes++; }
+    } else if (T.phase === 'glide') {           // 쭉 미끄러짐
+      setFrame('skate');
+      T.v *= Math.exp(-0.5 * dt); s.tiltTarget = 0.09 * s.dir; T.bob = 0;
+      if (T.t > 0.8) next('push');
+    } else {                                    // 브레이크
+      setFrame('skateStop'); s.tiltTarget = -0.12 * s.dir; T.bob = 0;
+      T.v = Math.max(0, T.v - 600 * dt);
+      if (T.v === 0) { s.tiltTarget = 0; finish('best', '슝~ 브레이크 성공! 🛼'); return; }
+    }
+    s.x += s.dir * T.v * dt;
+  } else if (T.kind === 'cart') {               // 천천히 밀고 감
+    setFrame('push'); s.x += s.dir * 55 * dt; s.tiltTarget = 0.05 * s.dir;
+    T.bob = Math.abs(Math.sin(now / 180 * Math.PI)) * 3;
+    if ((T.target - s.x) * s.dir <= 0) { s.tiltTarget = 0; finish('produce', '오늘 작업 다 했어요! 🌾'); }
+  }
+}
+// 특별 이동 중 클릭: 드론에 매달려 있으면 손을 놓쳐 떨어지고, 나머지는 그 자리에서 멈춤
+function tripClick(now) {
+  const T = trip, airborne = T.kind === 'drone' && s.y < ground() - 20;
+  endTrip(now);
+  if (airborne) { s.mode = 'fly'; s.vx = s.dir * 120; s.vy = -150; say('으앗! 놓쳤다~', { ms: 2000 }); }
+  else { s.mode = 'idle'; setFrame('idle'); s.tiltTarget = 0; }
+}
+function drawProp(dt, now, hop) {
+  const cart = trip && trip.kind === 'cart';     // 수레 위에 화면 쪽 주먹을 이삭이와 똑같은 위치·기울기·뒤집기로
+  hands.style.display = cart ? 'block' : 'none';
+  if (cart) { hands.style.width = hands.style.height = `${SIZE}px`; hands.style.transform = `${pet.style.transform} ${img.style.transform}`; }
+  if (trip && trip.kind === 'drone') {
+    const w = SIZE * DRONE_W, h = w * DRONE_H, petTop = s.y - SIZE * FOOT - hop;
+    const pf = `img/drone_bar_${Math.floor(now / 1000 * PROP_FPS) % 4}.png`;
+    if (!prop.src.endsWith(pf)) prop.src = pf;
+    propPos = { x: s.x - w / 2 + SIZE * 0.015, y: petTop + SIZE * HANG_FIST_Y - h * DRONE_BAR + trip.droneY + Math.sin(now / 45) * 1.2, w, rot: s.tilt * 0.6, flip: false };
+  } else if (trip && trip.kind === 'cart') {   // 수레는 바닥에, 이삭이 앞(z 21)
+    const w = SIZE * CART_W, h = w * (prop.naturalWidth ? prop.naturalHeight / prop.naturalWidth : 0.8), petLeft = s.x - SIZE / 2, flip = s.dir > 0;
+    const left = flip ? petLeft + SIZE * (1 - CART_OFF) - w : petLeft + SIZE * CART_OFF;
+    // 회전은 그림 아래 가운데 기준이라, 바퀴가 제자리에 있도록 그만큼 옮겨 줌
+    const a = (0.5 - CART_WHEEL) * w, dx = a * (1 - Math.cos(CART_TILT)) * (flip ? 1 : -1), dy = a * Math.sin(CART_TILT);
+    propPos = { x: left + dx, y: s.y - h + dy, w, rot: flip ? -CART_TILT : CART_TILT, flip, z: 21 };
+  } else if (droneAway && propPos) {
+    const pf = `img/drone_bar_${Math.floor(now / 1000 * PROP_FPS) % 4}.png`;
+    if (!prop.src.endsWith(pf)) prop.src = pf;
+    droneAway.t += dt; propPos.y -= 420 * dt; propPos.rot *= 0.95;
+    prop.style.opacity = Math.max(0, 1 - droneAway.t / 1.2);
+    if (droneAway.t > 1.2) { droneAway = null; prop.style.display = 'none'; return; }
+  } else return;
+  prop.style.zIndex = propPos.z || 19; prop.style.transformOrigin = '50% 100%'; prop.style.height = '';
+  prop.style.width = `${propPos.w}px`;
+  prop.style.transform = `translate(${propPos.x}px, ${propPos.y}px) rotate(${propPos.rot}rad) scaleX(${propPos.flip ? -1 : 1})`;
 }
 
 // ---------- 초과근무 로직 ----------
@@ -446,7 +568,7 @@ const tutorial = (() => {
     ['angry', '저는 버튼을 <b>대신 누르진 않아요</b>. 알림만! 🙂<br>개인 용무로 자리를 비울 땐 우클릭 → <b>제외시간 시작</b>, 돌아오면 저를 클릭해 주세요'],
     ['curious', '<b>우클릭</b>하면 메뉴가 나와요.<br>초과근무 시작 · 알람 소리 설정 · 크기 조정 · 미니게임 · 숨기기'],
     ['best', '<b>코인</b>은 매일 아침 <b>3개</b>로 채워져요 🪙<br>초과근무 중 근무확인을 제때 누르면 <b>1시간마다 +1</b>, 최대 5개까지 모여요<br><small>첫날엔 체험용으로 5개 드렸어요!</small>'],
-    ['cheer', '코인 1개로 <b>미니게임</b> 한 판!<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>🍉 <b>이삭이 수확 합치기</b>: 같은 작물끼리 합쳐 황금 이삭까지<br>🍎 <b>이삭이 수확팡</b>: 같은 작물 3개를 맞춰 60초 콤보<br>🏃 <b>이삭RUN</b>: Space로 점프, 사계절을 달려요<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
+    ['cheer', '코인 1개로 <b>미니게임</b> 한 판! (우클릭 → 미니게임 모음)<br>🎮 <b>과수원을 지켜라</b>: ← →로 과일은 받고 새똥은 피하기<br>⌨️ <b>이삭이 타자게임</b>: 새가 물고 온 단어를 치고 Enter<br>🍉 <b>이삭이 수확 합치기</b>: 같은 작물끼리 합쳐 황금 이삭까지<br>🍎 <b>이삭이 수확팡</b>: 같은 작물 3개를 맞춰 60초 콤보<br>🏃 <b>이삭RUN</b>: Space로 점프, 사계절을 달려요<br>점수 카드를 복사해서 동료와 겨뤄 보세요'],
     ['hello', '설정은 <b>트레이 아이콘</b>에서도 바꿀 수 있어요.<br><small>윈도우: 작업표시줄 오른쪽 알림 영역 · 맥: 화면 위 메뉴 막대</small><br>이 안내는 우클릭 → "튜토리얼 다시 보기". 그럼 잘 부탁해요! 👋'],
   ];
   let i = 0, active = false;
@@ -522,6 +644,7 @@ function onClickPet() {
   poke(9);
   if (OT.status === 'excluded') { otConfirmResume(); return; }
   if (OT.status === 'active' && (OT.stage > 0 || OT.pendingPress)) { otConfirmPress(); return; }
+  if (s.mode === 'trip' && trip) { tripClick(now); return; }
   if (s.clicks.length >= 5) {
     s.clicks = [];
     emote('surprise', 1400, { poke: 6 }); say('으앗! 그만 눌러요~');
@@ -728,7 +851,7 @@ function sirenSettings() {
   bubble.querySelector('.choices').classList.add('wrap');
 }
 
-async function openGame(kind = 'orchard') {
+async function openGame(kind = 'menu') {
   interrupt();
   const c = await isak.getCoins();
   if (c.coins <= 0) {
@@ -739,11 +862,7 @@ async function openGame(kind = 'orchard') {
 }
 const menuActions = {
   focus: () => FOCUS.status === 'off' ? focusChoose() : focusBubble(),
-  game: () => openGame('orchard'),
-  typing: () => openGame('typing'),
-  merge: () => openGame('merge'),
-  pang: () => openGame('pang'),
-  runner: () => openGame('runner'),
+  game: () => openGame(),
   siren: sirenSettings,
   resize: startResize, ask: () => otAsk(), checked: otPressed, fixtime: otFixTime, exclude: otExclude,
   resume: otResume, finish: otFinish, hide: hideForAWhile, quit: () => isak.quit(), tutorial: () => tutorial.start(),
@@ -803,6 +922,13 @@ function tick(now) {
     }
   }
 
+  if (s.mode === 'trip' && trip) tripTick(dt, now, G);
+  else if (trip) {                              // 다른 일(끌기·알람 등)로 특별 이동이 끊김
+    if (s.y < G - 1 && s.mode === 'idle') { s.mode = 'fly'; s.vx = s.vy = 0; }   // 공중에서 끊기면 떨어짐
+    else if (s.y < G - 1 && s.mode === 'emote') s.y = G;
+    endTrip(now);
+  }
+
   if (s.mode === 'walk') {
     s.x += s.dir * WALK_SPEED * dt;
     if (s.x < L + 20) s.dir = 1;
@@ -823,7 +949,8 @@ function tick(now) {
 
   if (autoplay && !resizing && !hidden && !bubbleBusy() && FOCUS.status === 'off' && s.mode === 'idle' && now > s.nextAuto) {
     const r = Math.random();
-    if (r < 0.5) startWalk();
+    if (tripTest) { if (!startTrip(tripTest === 'all' ? ['drone', 'skate', 'cart'][tripCycle++ % 3] : tripTest)) startWalk(); }
+    else if (r < 0.5) { if (!(Math.random() < TRIP_CHANCE && startTrip(pick(['drone', 'skate', 'cart'])))) startWalk(); }
     else if (r < 0.62) actions.research();
     else if (r < 0.72) actions.farm();
     else if (r < 0.8) actions.curious();
@@ -846,6 +973,7 @@ function tick(now) {
 
   let hop = 0;
   if (s.mode === 'walk') hop = Math.abs(Math.sin(now / 170 * Math.PI)) * 10;
+  if (s.mode === 'trip' && trip) hop = trip.bob;
   if (s.emoteName === 'cheer' || s.emoteName === 'best') hop = Math.abs(Math.sin(now / (tutorial.active ? 700 : 200) * Math.PI)) * (tutorial.active ? 6 : 26);
   if (s.emoteName === 'alarm' && !tutorial.active) hop = Math.abs(Math.sin(now / 130 * Math.PI)) * 8;
   const breathe = (s.mode === 'idle' || s.mode === 'emote') ? Math.sin(now / 600) * 0.015 : 0;
@@ -855,6 +983,7 @@ function tick(now) {
   const flip = FACES_LEFT[s.frame] ? -s.dir : 1;
   pet.style.transform = `translate(${s.x - SIZE / 2 + shakeX}px, ${s.y - SIZE * FOOT - hop}px)`;
   img.style.transform = `rotate(${s.tilt}rad) scale(${sx * flip}, ${sy})`;
+  drawProp(dt, now, hop);
 
   const height = Math.max(0, G - s.y + hop);
   const shScale = Math.max(0.35, 1 - height / 500);
@@ -895,13 +1024,14 @@ function applyEnv(e) {
   env.width = e.width; env.height = e.height; env.isWorkday = e.isWorkday;
   if (e.xRatio != null) s.x = e.xRatio * env.width;
   s.x = Math.max(SIZE * 0.32, Math.min(env.width - SIZE * 0.32, s.x));
-  if (s.mode !== 'fly' && s.mode !== 'drag') s.y = ground();
+  if (s.mode !== 'fly' && s.mode !== 'drag' && s.mode !== 'trip') s.y = ground();
 }
 let resumedSession = false;
 (async () => {
   const e = await isak.getEnv();
   const st = e.state;
   autoplay = st.autoplay;
+  tripTest = e.tripTest;   // 개발용 ISAK_TRIP
   if (st.hourlyEvery !== undefined) hourlyEvery = st.hourlyEvery;
   if (st.focusMinutes) FOCUS.minutesSet = st.focusMinutes;
   FOCUS.onTop = !!st.focusOnTop;

@@ -10,8 +10,9 @@
   .howto-pang { bottom: 12px; line-height: 1.5; }
   #intro .ranks { bottom: 58px; }
   #intro .intro-info { bottom: 84px; }
-  .items-line { position: absolute; top: 250px; left: 0; right: 0; text-align: center; font-size: 13px; }
-  .items-line span { display: inline-block; background: #fffbe6; border: 2px solid #2b3a2e; padding: 3px 8px; line-height: 1.7; }
+  .items-line { position: absolute; top: 352px; left: 0; right: 0; text-align: center; font-size: 13px; }
+  .items-line span { display: inline-block; background: #fffbe6; border: 2px solid #2b3a2e; padding: 4px 10px; line-height: 1.9; }
+  .items-line img { height: 22px; vertical-align: middle; margin: 0 1px; }
   .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 14px; margin: 8px 0; text-align: left; }
   .stat-grid b { color: #1d6b53; float: right; }
   /* 게임 방법 */
@@ -41,7 +42,7 @@
       <div class="subtitle">HARVEST PANG</div>
     </div>
     <div class="press blink" id="pressStart">PRESS SPACE</div>
-    <div class="items-line"><span>4개 → 🚜 트랙터 · ㄱ/T자 → 💥 비료<br>5개 → 🌾 황금 이삭</span></div>
+    <div class="items-line"><span>4개 → <img src="img/item_tractor.png">트랙터 · ㄱ/T자 → <img src="img/item_fertilizer.png">비료<br>네모 → <img src="img/item_drone.png">드론 · 5개 → <img src="../game/img/item_golden_ear.png">황금 이삭</span></div>
     <div class="intro-info">
       <div class="coins" id="introCoins"></div>
       <div class="best" id="introBest"></div>
@@ -68,8 +69,8 @@
       </div>
       <div class="page">
         <h3>농기구 아이템</h3>
-        <div class="pic">🚜 💥 🌾</div>
-        <ul><li><b>4개</b> 한 줄 → <b>트랙터</b>: 그 줄을 끝까지 몰고 가며 싹 수확</li><li><b>ㄱ·T자</b>(가로3+세로3) → <b>비료</b>: 주변 5×5를 펑!</li><li><b>5개</b> 한 줄 → <b>황금 이삭</b>: 바꾼 작물과 같은 작물을 판에서 전부 수확</li></ul>
+        <div class="pic"><img src="img/item_tractor.png"><img src="img/item_fertilizer.png"><img src="img/item_drone.png"><img src="../game/img/item_golden_ear.png"></div>
+        <ul><li><b>4개</b> 한 줄 → <b>트랙터</b>: 그 줄을 끝까지 몰고 가며 싹 수확</li><li><b>ㄱ·T자</b>(가로3+세로3) → <b>비료</b>: 주변 5×5를 펑!</li><li><b>네모</b>(2×2) → <b>드론</b>: 판 여기저기 세 곳으로 날아가 + 모양으로 수확</li><li><b>5개</b> 한 줄 → <b>황금 이삭</b>: 바꾼 작물과 같은 작물을 판에서 전부 수확</li></ul>
         아이템은 <b>클릭만 해도</b> 터지고, 아이템끼리 바꾸면 더 크게 터져요.<br>
         터질 때 시간도 늘어요: 트랙터·비료 <b>+2초</b>, 황금 이삭 <b>+4초</b>
       </div>

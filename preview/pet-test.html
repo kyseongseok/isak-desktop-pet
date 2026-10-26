@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><title>펫 로직 시뮬레이터</title>
-<link rel="stylesheet" href="../app/renderer/style.css">
+<base href="../app/renderer/"><!-- 펫 그림(img/...)을 앱과 같은 폴더에서 읽게 -->
+<link rel="stylesheet" href="style.css">
 <style>body{background:#dfe9f3} #log{position:fixed;left:8px;top:8px;width:420px;max-height:95vh;overflow:auto;background:#fff;font:12px/1.5 monospace;padding:8px;border:1px solid #ccc;z-index:999;white-space:pre-wrap}</style>
 </head><body>
 <pre id="log">simulator ready</pre>
@@ -8,6 +9,8 @@
 <div id="flash"></div>
 <div id="shadow"></div>
 <div id="ring" hidden><span>50</span></div>
+<img id="prop" alt="" draggable="false">
+<img id="hands" alt="" draggable="false" src="img/push_fist.png">
 <div id="pet"><img id="petImg" alt="이삭이" draggable="false"><div class="handle" title="끌어서 크기 조정"></div></div>
 <div id="bubble"></div>
 <div id="ctxMenu">
@@ -55,7 +58,7 @@ window.isak = {
   saveState: (p) => { __saved.push(JSON.parse(JSON.stringify(p))); Object.assign(__state, p); },
   setIgnoreMouse() {}, setOnTop(v) { __events.push(['onTop', v]); },
   notify: (t, b) => __events.push(['notify', b]),
-  petDropped() {}, quit() {}, openGame(k) { __events.push(['openGame', k]); },
+  petDropped() {}, quit() {}, hitRects() {}, openGame(k) { __events.push(['openGame', k]); },
   coinBonus: () => __events.push(['coinBonus']),
   getCoins: async () => ({ coins: 3, cap: 5, daily: 3 }),
   alarmStage: (i) => __events.push(['alarmStage', i.stage]),
@@ -64,8 +67,8 @@ window.isak = {
 // AudioContext 없이도 돌게
 window.AudioContext = class { constructor() { this.state = 'running'; this.currentTime = 0; this.destination = {}; } resume() {} createGain() { return { gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {} }, connect() {} }; } createOscillator() { return { type: '', frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, start() {}, stop() {} }; } createBiquadFilter() { return { type: '', frequency: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } createBuffer() { return { getChannelData: () => new Float32Array(10) }; } createBufferSource() { return { buffer: null, connect() {}, start() {}, stop() {} }; } };
 </script>
-<script src="../app/renderer/siren.js"></script>
-<script src="../app/renderer/pet.js"></script>
+<script src="siren.js"></script>
+<script src="pet.js"></script>
 <script>
 // ---------- 시나리오 도우미 ----------
 const L = [];
