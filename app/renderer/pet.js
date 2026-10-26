@@ -166,6 +166,13 @@ function startWalk() {
 // ---------- 특별 이동: 드론에 매달려 날기 · 롤러블레이드 · 손수레 ----------
 // 걷기를 시작할 때 가끔(TRIP_CHANCE) 대신 나옴. 소품(드론·수레)은 #prop 그림 하나를 이삭이 뒤에 붙여서 움직임
 const TRIP_CHANCE = 0.15;
+// 어떤 이동이 나올지: 롤러 절반, 드론·수레는 1/4씩 (드론·수레는 조금 어색해서 덜 자주)
+const TRIP_WEIGHTS = { skate: 2, drone: 1, cart: 1 };
+function pickTrip() {
+  let r = Math.random() * Object.values(TRIP_WEIGHTS).reduce((a, b) => a + b, 0);
+  for (const [k, w] of Object.entries(TRIP_WEIGHTS)) { if ((r -= w) < 0) return k; }
+  return 'skate';
+}
 const prop = document.getElementById('prop'), hands = document.getElementById('hands');
 let trip = null, tripTest = null, tripCycle = 0, droneAway = null, propPos = null;
 const ease = (k) => { k = Math.max(0, Math.min(1, k)); return k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2; };
@@ -950,7 +957,7 @@ function tick(now) {
   if (autoplay && !resizing && !hidden && !bubbleBusy() && FOCUS.status === 'off' && s.mode === 'idle' && now > s.nextAuto) {
     const r = Math.random();
     if (tripTest) { if (!startTrip(tripTest === 'all' ? ['drone', 'skate', 'cart'][tripCycle++ % 3] : tripTest)) startWalk(); }
-    else if (r < 0.5) { if (!(Math.random() < TRIP_CHANCE && startTrip(pick(['drone', 'skate', 'cart'])))) startWalk(); }
+    else if (r < 0.5) { if (!(Math.random() < TRIP_CHANCE && startTrip(pickTrip()))) startWalk(); }
     else if (r < 0.62) actions.research();
     else if (r < 0.72) actions.farm();
     else if (r < 0.8) actions.curious();
