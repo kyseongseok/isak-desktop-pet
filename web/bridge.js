@@ -26,7 +26,10 @@
     spendCoin: async () => ({ ok: true, ...FREE }),
     getBest: async () => rec(kind).best,
     saveBest(best) { const r = rec(kind); r.best = Math.max(r.best, best); save('game.' + kind, r); },
-    saveScore(one) { const r = rec(kind); r.history = [one, ...r.history].slice(0, 20); save('game.' + kind, r); },   // 최근 기록 20개
+    saveScore(one) {   // 최근 기록 20개 + 방금 판은 순위표에 올릴 수 있게 (web-rank.js)
+      const r = rec(kind); r.history = [one, ...r.history].slice(0, 20); save('game.' + kind, r);
+      window.dispatchEvent(new CustomEvent('isak-score', { detail: one }));
+    },
     getHistory: async () => rec(kind).history,
     // 점수 카드: 휴대폰 공유 시트(카톡 등)로, 안 되면 이미지 내려받기. 결과는 window.lastShare에 (mobile.js가 버튼 문구에 씀)
     async shareCard(dataUrl) {
