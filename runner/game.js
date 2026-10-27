@@ -534,7 +534,7 @@ function drawIsak() {
   ctx.save();
   ctx.translate(ISAK_X, S.y - ISAK_H / 2);
   if (S.dying) ctx.rotate(-(1.2 - S.dying) * 3);
-  else if (S.spin) ctx.rotate(-(1 - S.spin) * Math.PI * 2);
+  else if (S.spin) ctx.rotate((1 - S.spin) * Math.PI * 2);   // 2단 점프: 달리는 쪽(오른쪽)으로 앞구르기 = 시계 방향
   else if (air) ctx.rotate(S.vy < 0 ? -0.12 : 0.1);
   else ctx.translate(0, -Math.abs(Math.sin(S.t * 14)) * 3);   // 통통 뛰기
   const umbrella = S.shield && !S.dying;
