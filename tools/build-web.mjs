@@ -25,7 +25,7 @@ for (const d of DIRS) {
 }
 fs.mkdirSync(path.join(OUT, 'renderer', 'img'), { recursive: true });
 for (const p of poses) fs.copyFileSync(path.join(APP, 'renderer', 'img', p + '.png'), path.join(OUT, 'renderer', 'img', p + '.png'));
-for (const f of ['bridge.js', 'mobile.js', 'mobile.css', 'rank.js']) fs.copyFileSync(path.join(WEB, f), path.join(OUT, 'web-' + f));
+for (const f of ['bridge.js', 'mobile.js', 'mobile.css', 'rank.js', 'install.js']) fs.copyFileSync(path.join(WEB, f), path.join(OUT, 'web-' + f));
 fs.cpSync(path.join(WEB, 'icons'), path.join(OUT, 'icons'), { recursive: true });   // tools/make-web-icons.py로 만든 것
 
 // 배경음악(5MB)을 휴대폰용으로 줄이기: HE-AAC 32kbps (맥의 afconvert가 있을 때만, 없으면 원본 그대로)
@@ -63,7 +63,7 @@ for (const d of DIRS) {
   let html = fs.readFileSync(f, 'utf8');
   html = html.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n${HEAD}`);
   html = html.replace('</head>', '<link rel="stylesheet" href="../web-mobile.css">\n</head>');
-  html = html.replace('<script ', '<script src="../web-bridge.js"></script>\n<script src="../web-mobile.js"></script>\n<script src="../web-rank.js"></script>\n<script ');
+  html = html.replace('<script ', '<script src="../web-bridge.js"></script>\n<script src="../web-mobile.js"></script>\n<script src="../web-rank.js"></script>\n<script src="../web-install.js"></script>\n<script ');
   // 공개 순위표(구글 앱스 스크립트)에 요청할 수 있게 (펫 앱 쪽 app/은 그대로 'self'만)
   html = html.replace("default-src 'self';", "default-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com;");
   if (!html.includes('web-bridge.js') || !html.includes('web-mobile.css') || !html.includes('name="viewport"') || !html.includes('connect-src')) throw new Error(`${d}/index.html에 끼워 넣지 못함`);
