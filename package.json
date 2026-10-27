@@ -1,7 +1,7 @@
 {
   "name": "isak-desktop-pet",
   "productName": "이삭이",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "농촌진흥청 캐릭터 이삭이 데스크톱 펫 — 초과근무 근무확인 알림 도우미",
   "main": "app/main.js",
   "private": true,
@@ -14,7 +14,7 @@
   "author": "kskwon",
   "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^33.4.11",
+    "electron": "^45.0.0",
     "electron-builder": "^25.1.8"
   },
   "build": {
