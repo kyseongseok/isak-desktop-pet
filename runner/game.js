@@ -229,7 +229,10 @@ const onGround = () => S.y >= GROUND && S.vy >= 0;
 function press() {
   if (S.screen !== 'play' || S.paused || S.dying) return;
   if (onGround()) { S.vy = JUMP_V; S.jumps = 1; S.holding = true; S.holdT = 0; S.diving = false; S.jumpsMade++; sfx.jump(); dust(ISAK_X, GROUND, 5); }
-  else if (S.jumps < 2) { S.vy = DOUBLE_V; S.jumps = 2; S.holding = true; S.holdT = 0; S.diving = false; S.spin = 1; sfx.double(); }
+  else if (S.jumps < (S.golden > 0 ? 3 : 2)) {   // 공중에서 한 번 더 (황금 질주 중엔 두 번 더 = 3단 점프)
+    S.vy = DOUBLE_V; S.jumps++; S.holding = true; S.holdT = 0; S.diving = false; S.spin = 1; sfx.double();
+    if (S.jumps === 3) popText(ISAK_X, S.y - 110, '3단 점프!', '#ffd93c', 16);
+  }
 }
 function release() { S.holding = false; }
 
