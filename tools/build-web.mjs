@@ -50,7 +50,7 @@ fs.writeFileSync(path.join(OUT, 'manifest.webmanifest'), JSON.stringify({
 // 각 페이지: 휴대폰 화면 크기(viewport) + 홈 화면 앱 정보 + 공통 스타일 + 웹 브리지·터치 보조를 첫 스크립트보다 먼저
 // (viewport-fit=cover를 안 쓰면 아이폰이 노치·홈 바 영역을 비워 둠)
 const HEAD = [
-  '<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">',
+  '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">',
   `<meta name="theme-color" content="${COLOR}">`,
   '<meta name="mobile-web-app-capable" content="yes">',
   '<meta name="apple-mobile-web-app-capable" content="yes">',

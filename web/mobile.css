@@ -7,6 +7,9 @@ html, body {
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
 img { -webkit-user-drag: none; }
+/* 아이폰은 touch-action을 누른 그 요소 기준으로 봐서, 무대 안 모든 것에 걸어 둠 (두 번 누르기 확대 막기) */
+#stage, #stage * { touch-action: none; }
+#stage input { touch-action: manipulation; }
 /* 아이폰 사파리: 줄여 보이는 무대의 작은 글씨를 멋대로 키워서 줄이 넘치고 겹침 → 끔 */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* 아이폰: 글자색 없는 버튼(게임 방법·♪·🔊·×)을 시스템 파란색으로 칠함 → 게임 글자색으로 (.btn 등 색을 정한 버튼은 그대로) */
