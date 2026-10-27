@@ -17,7 +17,20 @@
     fix();
   }
   // 오프라인 실행: 게임 파일을 휴대폰에 받아 두는 서비스 워커 (https 또는 localhost에서만 동작)
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js').catch(() => {});
+  // 새 버전을 다 받아서 갈아 끼우면(controllerchange) 고르는 화면은 바로 한 번 새로 고침.
+  // 게임 중엔 끊지 않음 → 게임을 닫고 고르는 화면으로 갈 때 새 파일로 열림
+  if ('serviceWorker' in navigator) {
+    const hadOld = !!navigator.serviceWorker.controller;   // 처음 설치할 땐 새로 고칠 필요 없음
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadOld || window.game.kind) return;
+      try {   // 혹시 모를 연속 새로 고침 막기 (10초 안에 두 번은 안 함)
+        if (Date.now() - (+sessionStorage.getItem('isak.reloadedAt') || 0) < 10000) return;
+        sessionStorage.setItem('isak.reloadedAt', String(Date.now()));
+      } catch {}
+      location.reload();
+    });
+    navigator.serviceWorker.register('../sw.js').catch(() => {});
+  }
 
   // 점수 카드 버튼: 게임이 적는 '복사·저장' 문구를 휴대폰에 맞게 (공유 결과는 web-bridge.js의 lastShare)
   const shareBtn = document.getElementById('shareBtn');
