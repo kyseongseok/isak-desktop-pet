@@ -1,0 +1,6 @@
+bgm.m4a — 'CPU Showdown (Long Loop With Intro)'
+작곡: MegaPixel Music (Mega Pixel Music Lab)
+출처: https://opengameart.org/content/cpu-showdown
+라이선스: CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/) — 원작자가 CC-BY-SA 3.0, GPL 2.0/3.0과 함께 고를 수 있게 공개
+저작자 표시: "Attribute this music to MegaPixel Music." (원작자 요청)
+변경: 원본 mp3를 m4a(AAC)로 변환해 용량을 줄임. 휴대폰 웹앱은 더 낮은 음질(HE-AAC 32kbps)로 다시 변환

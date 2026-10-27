@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#9fd9ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="이삭이게임">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'">
+<title>과수원을 지켜라</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../web-mobile.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="c" width="480" height="800"></canvas>
+
+  <!-- 인트로 -->
+  <div class="screen" id="intro">
+    <div class="title-box">
+      <div class="title">과수원을<br>지켜라!</div>
+      <div class="subtitle">ISAK · DEFEND THE ORCHARD</div>
+    </div>
+    <div class="press blink" id="pressStart">PRESS SPACE</div>
+    <div class="intro-info">
+      <div class="coins" id="introCoins"></div>
+      <div class="best" id="introBest"></div>
+    </div>
+    <div class="ranks" id="introRanks"></div>
+    <div class="howto">누른 쪽으로 이동 · 과일은 받고 새똥은 피하기 · 3분 버티면 클리어</div>
+  </div>
+
+  <!-- 일시정지 / 알람 -->
+  <div class="screen overlay" id="pause">
+    <div class="panel">
+      <div class="panel-title" id="pauseTitle">일시정지</div>
+      <div class="panel-text" id="pauseText">P 또는 ESC로 계속</div>
+      <button class="btn" id="resumeBtn">계속하기</button>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="screen overlay" id="result">
+    <div class="panel">
+      <div class="panel-title" id="resultTitle">GAME OVER</div>
+      <div class="score-line">SCORE <span id="resultScore">0</span></div>
+      <div class="panel-text" id="resultBest"></div>
+      <div class="panel-text small" id="resultStats"></div>
+      <button class="btn" id="retryBtn">다시 하기</button>
+      <button class="btn share" id="shareBtn">📸 점수 카드 복사·저장</button>
+      <button class="btn secondary" id="closeBtn">닫기</button>
+    </div>
+  </div>
+
+  <button id="x" title="닫기">×</button>
+  <button id="mute" title="효과음 켜기/끄기 (M)">🔊</button>
+  <button id="bgm" title="배경음악 켜기/끄기 (B)">♪</button>
+</div>
+<script src="../web-bridge.js"></script>
+<script src="../web-mobile.js"></script>
+<script src="card.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

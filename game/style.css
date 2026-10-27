@@ -1,0 +1,64 @@
+@font-face { font-family: 'Galmuri11'; src: url('font/Galmuri11.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'Galmuri11'; src: url('font/Galmuri11-Bold.woff2') format('woff2'); font-weight: 700; }
+@font-face { font-family: 'Galmuri14'; src: url('font/Galmuri14.woff2') format('woff2'); }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #9fd9ff; user-select: none; }
+body { font-family: 'Galmuri11', 'Malgun Gothic', sans-serif; color: #2b3a2e; }
+/* 창 크기·배율이 달라도 480×800 무대를 통째로 축소해 다 보이게 */
+#stage { position: absolute; left: 0; top: 0; width: 480px; height: 800px; overflow: hidden; transform-origin: 0 0; }
+#c { position: absolute; inset: 0; width: 480px; height: 800px; image-rendering: auto; }
+
+.screen { position: absolute; inset: 0; display: none; }
+.screen.on { display: block; }
+.overlay { background: rgba(20, 40, 30, .55); }
+
+/* 픽셀 UI 공통 */
+.pixel-border {
+  border: 4px solid #2b3a2e;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 8px #2b3a2e;
+}
+.panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 360px;
+  background: #fffbe6; padding: 22px 20px 18px; text-align: center;
+  border: 4px solid #2b3a2e; box-shadow: 0 0 0 4px #fffbe6, 0 0 0 8px #2b3a2e;
+}
+.panel-title { font-family: 'Galmuri14'; font-size: 30px; letter-spacing: 2px; margin-bottom: 10px; }
+.panel-text { font-size: 15px; line-height: 1.6; margin: 6px 0; }
+.panel-text.small { font-size: 13px; color: #556; }
+.score-line { font-family: 'Galmuri14'; font-size: 22px; margin: 6px 0 4px; }
+.score-line span { color: #d7451d; }
+.btn {
+  display: block; width: 100%; margin-top: 10px; padding: 10px 0; cursor: pointer;
+  font-family: 'Galmuri11'; font-weight: 700; font-size: 16px; color: #fff; background: #2a8c6e;
+  border: 3px solid #2b3a2e; box-shadow: 4px 4px 0 #2b3a2e;
+}
+.btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #2b3a2e; }
+.btn.secondary { background: #e4ece9; color: #2b3a2e; }
+.btn:disabled { background: #aaa; cursor: default; }
+
+/* 인트로 */
+#intro { background: url('img/intro.png') center / cover no-repeat; }
+.title-box { position: absolute; top: 90px; left: 0; right: 0; text-align: center; }
+.title {
+  font-family: 'Galmuri14'; font-size: 54px; line-height: 1.1; color: #fff; letter-spacing: 2px;
+  text-shadow: 4px 4px 0 #2a8c6e, -2px -2px 0 #2b3a2e, 2px -2px 0 #2b3a2e, -2px 2px 0 #2b3a2e, 6px 6px 0 #2b3a2e;
+}
+.subtitle { font-size: 14px; color: #2b3a2e; letter-spacing: 4px; margin-top: 10px; background: #fffbe6; display: inline-block; padding: 2px 10px; border: 2px solid #2b3a2e; }
+.press { position: absolute; top: 300px; left: 0; right: 0; text-align: center; font-family: 'Galmuri14'; font-size: 22px; color: #fff; text-shadow: 2px 2px 0 #2b3a2e; }
+.blink { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.intro-info { position: absolute; bottom: 76px; left: 0; right: 0; text-align: center; font-size: 15px; }
+.intro-info div { display: inline-block; background: #fffbe6; border: 2px solid #2b3a2e; padding: 4px 10px; margin: 0 4px; }
+.howto { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 12px; color: #fff; text-shadow: 1px 1px 0 #2b3a2e; }
+
+#x, #mute, #bgm {
+  position: absolute; top: 52px; width: 32px; height: 32px; border: 2px solid #2b3a2e; background: #fffbe6;
+  font-family: 'Galmuri11'; font-size: 18px; cursor: pointer; line-height: 1; z-index: 20;
+}
+#x { right: 8px; }
+#mute { right: 46px; font-size: 15px; }
+#bgm { right: 84px; font-size: 16px; }
+#bgm.off, #mute.off { color: #999; }
+.btn.share { background: #f0a030; }
+.ranks { position: absolute; bottom: 44px; left: 0; right: 0; text-align: center; font-size: 12px; color: #fff; text-shadow: 1px 1px 0 #2b3a2e; }
