@@ -67,6 +67,39 @@
   const onGame = (e) => !e.target.closest('button, input, a, .screen');   // 버튼·겹친 화면 위는 빼고
   const stageX = (e) => { const r = canvas.getBoundingClientRect(); return (e.clientX - r.left) / r.width * canvas.offsetWidth; };   // 무대 좌표(0~480): 화면 배율·고해상도와 무관
 
+  // ---------- 자동 일시정지 ----------
+  // 게임은 창이 포커스를 잃을 때(blur)만 멈추는데, 아이폰은 다른 앱으로 가거나 전화가 와도 blur를 거의 안 보냄.
+  // 그래서 화면이 가려질 때, 아이폰이 소리를 끊을 때(통화 띠 등) 게임 자신의 blur 처리를 대신 불러 줌
+  if (kind) {
+    const stop = () => { if (playing()) dispatchEvent(new Event('blur')); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+    addEventListener('pagehide', stop);
+    // 효과음(AudioContext): 아이폰은 통화 중 'interrupted'로 바꾸고, 게임은 'suspended'만 깨우므로 누를 때 다시 깨움
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctxs = [];
+    if (AC) {
+      window.AudioContext = class extends AC {
+        constructor(...a) {
+          super(...a); ctxs.push(this);
+          this.addEventListener('statechange', () => { if (this.state === 'interrupted') stop(); });
+        }
+      };
+    }
+    const wake = () => { if (document.hidden) return; for (const c of ctxs) if (c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => {}); };
+    addEventListener('pointerdown', wake, true);
+    // 배경음악(Audio): 게임이 직접 멈춘 게 아닌데 멈췄으면 아이폰이 끊은 것 (계속하기를 누르면 게임이 다시 틂)
+    const NativeAudio = window.Audio;
+    window.Audio = function (...a) {
+      const el = new NativeAudio(...a), pause = el.pause;
+      let mine = false, sounding = false;   // sounding: 실제로 소리가 났었는지 (자동 재생이 막혀 바로 멈춘 건 끊김이 아님)
+      el.pause = function () { if (!this.paused) mine = true; return pause.call(this); };   // 이미 멈춘 걸 또 멈추면 pause 이벤트가 안 오니 표시도 안 함
+      el.addEventListener('playing', () => { sounding = true; });
+      el.addEventListener('pause', () => { if (!mine && sounding) stop(); mine = sounding = false; });
+      return el;
+    };
+    window.Audio.prototype = NativeAudio.prototype;
+  }
+
   // 과수원을 지켜라: 누르고 있는 곳까지 이삭이가 걸어감 (← → 키를 대신 눌러 줌, 속도는 키보드와 같음)
   if (kind === 'orchard' && canvas) {
     let target = null;
