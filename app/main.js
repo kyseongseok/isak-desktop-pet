@@ -156,7 +156,7 @@ ipcMain.on('quit', shutdown);
 const GAMES = {
   orchard: { title: '과수원을 지켜라', dir: 'game' },
   typing: { title: '이삭이 타자게임', dir: 'typing' },
-  merge: { title: '이삭이 수확 합치기', dir: 'merge' },
+  merge: { title: '이삭이 쑥쑥', dir: 'merge' },
   pang: { title: '이삭이 수확팡', dir: 'pang' },
   runner: { title: '이삭RUN', dir: 'runner' },
 };

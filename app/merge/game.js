@@ -1,4 +1,4 @@
-// 이삭이 수확 합치기 — 같은 작물끼리 부딪히면 다음 단계로 자라는 물리 퍼즐 (수박게임 방식)
+// 이삭이 쑥쑥 — 같은 작물끼리 부딪히면 다음 단계로 자라는 물리 퍼즐 (수박게임 방식)
 // 판이 끝없이 길어지지 않게: 물 게이지가 계속 줄고(합치면 보충), 돌·잡초 장애물이 떨어진다
 'use strict';
 
@@ -613,7 +613,7 @@ function draw() {
 // ---------- 점수 카드 ----------
 async function shareCard() {
   const sec = Math.floor(S.t);
-  const dataUrl = scoreCard({ title: '이삭이 수확 합치기', score: S.score, best: S.best, bg: IMG.bg,
+  const dataUrl = scoreCard({ title: '이삭이 쑥쑥', score: S.score, best: S.best, bg: IMG.bg,
     line: `최고 작물 ${TIERS[S.topTier].name}${S.goldens ? ` ★${S.goldens}` : ''}  ·  합치기 ${S.merges}번  ·  ${Math.floor(sec / 60)}분 ${sec % 60}초` });
   const r = await bridge.shareCard(dataUrl);
   $('shareBtn').textContent = r.copied ? '✅ 복사했어요 · 메신저에 붙여넣기' : '✅ 저장했어요';

@@ -1,0 +1,35 @@
+/* 휴대폰 웹앱 공통: tools/build-web.mjs가 모든 페이지에 끼워 넣음 */
+
+/* 끌거나 길게 눌러도 화면이 스크롤·확대되거나 글자가 선택되지 않게 */
+html, body {
+  touch-action: none; overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+img { -webkit-user-drag: none; }
+/* 점수 카드 이름 칸은 글자 입력·선택 가능 */
+input { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+
+/* 화면 비율이 무대(480×800)와 다를 때 남는 곳: 그 게임 배경을 흐리게 (--web-bg는 web-mobile.js가 정함) */
+html, body { background: #9fd9ff; }
+body { background: transparent; }
+body::before {
+  content: ''; position: fixed; inset: -40px; z-index: -1;
+  background: var(--web-bg) center / cover no-repeat; filter: blur(14px) saturate(1.1);
+}
+
+/* 게임 고르는 화면: 무대를 화면 비율대로 늘림 (게임 규칙과 상관없는 화면이라) */
+.web-arcade #stage { width: var(--w) !important; height: var(--h) !important; transform: var(--fit) !important; }
+.web-wide .list { left: 50%; right: auto; width: 820px; transform: translateX(-50%); display: grid; grid-template-columns: 1fr 1fr; }
+
+/* 게임 고르는 화면: 웹에선 닫을 창이 없고 키보드 안내도 필요 없음 */
+#menu ~ #x, #menu .foot { display: none; }
+/* 그 자리에 진동 켜기/끄기 (web-mobile.js가 만듦) */
+.web-vibe { position: absolute; bottom: 16px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.web-vibe button {
+  font-family: 'Galmuri11', sans-serif; font-size: 14px; color: #2b3a2e; cursor: pointer;
+  background: #fffbe6; border: 3px solid #2b3a2e; box-shadow: 3px 3px 0 #2b3a2e; padding: 6px 14px;
+}
+.web-vibe button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2b3a2e; }
+.web-vibe small { font-size: 11px; color: #2b3a2e; background: rgba(255,251,230,.85); padding: 2px 8px; }
+.web-vibe .credit { font-size: 10px; color: #2b3a2e; text-decoration: none; background: rgba(255,251,230,.7); padding: 1px 6px; }
