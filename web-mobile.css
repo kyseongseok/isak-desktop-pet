@@ -7,6 +7,12 @@ html, body {
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
 img { -webkit-user-drag: none; }
+/* 아이폰 사파리: 줄여 보이는 무대의 작은 글씨를 멋대로 키워서 줄이 넘치고 겹침 → 끔 */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* 아이폰: 글자색 없는 버튼(게임 방법·♪·🔊·×)을 시스템 파란색으로 칠함 → 게임 글자색으로 (.btn 등 색을 정한 버튼은 그대로) */
+button { color: #2b3a2e; -webkit-appearance: none; appearance: none; }
+/* 아이폰은 버튼 안쪽 여백이 커서 32px 네모 버튼(♪·🔊·×)이 서로 붙어 보임 */
+#x, #mute, #bgm { padding: 0; }
 /* 점수 카드 이름 칸은 글자 입력·선택 가능 */
 input { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
 
