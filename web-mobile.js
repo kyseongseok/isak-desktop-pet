@@ -84,8 +84,26 @@
     });
   }
 
-  // 게임 고르는 화면: 진동 켜기/끄기 (숨긴 키보드 안내 자리에)
+  // ---------- 화면 비율 ----------
+  // 게임: 480×800 무대는 그대로 두고(규칙·난이도가 같게) 남는 양옆·위아래를 그 게임 배경을 흐리게 깔아 채움
+  // (경로는 이 값을 쓰는 web-mobile.css 기준 = dist-web 맨 위)
+  const BACKDROP = { orchard: 'game/img/bg.png', merge: 'game/img/bg.png', pang: 'game/img/bg.png' }[kind] || 'runner/img/bg_spring.jpg';
+  document.documentElement.style.setProperty('--web-bg', `url('${BACKDROP}')`);
+
+  // 게임 고르는 화면: 무대를 화면 비율대로 늘려 빈틈 없이 (글자 크기는 그대로, 넓으면 두 줄로)
   const menu = document.getElementById('menu');
+  if (menu && !kind) {
+    document.documentElement.classList.add('web-arcade');
+    const fit = () => {
+      const s = Math.min(innerWidth / 480, innerHeight / 800), w = innerWidth / s, h = innerHeight / s;
+      const st = document.documentElement.style;
+      st.setProperty('--fit', `scale(${s})`); st.setProperty('--w', w + 'px'); st.setProperty('--h', h + 'px');
+      document.documentElement.classList.toggle('web-wide', w >= 760);
+    };
+    fit(); addEventListener('resize', fit);
+  }
+
+  // 게임 고르는 화면: 진동 켜기/끄기 (숨긴 키보드 안내 자리에)
   if (menu && !kind) {
     const box = document.createElement('div');
     box.className = 'web-vibe';

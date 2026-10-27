@@ -10,6 +10,18 @@ img { -webkit-user-drag: none; }
 /* 점수 카드 이름 칸은 글자 입력·선택 가능 */
 input { -webkit-user-select: text; user-select: text; touch-action: manipulation; }
 
+/* 화면 비율이 무대(480×800)와 다를 때 남는 곳: 그 게임 배경을 흐리게 (--web-bg는 web-mobile.js가 정함) */
+html, body { background: #9fd9ff; }
+body { background: transparent; }
+body::before {
+  content: ''; position: fixed; inset: -40px; z-index: -1;
+  background: var(--web-bg) center / cover no-repeat; filter: blur(14px) saturate(1.1);
+}
+
+/* 게임 고르는 화면: 무대를 화면 비율대로 늘림 (게임 규칙과 상관없는 화면이라) */
+.web-arcade #stage { width: var(--w) !important; height: var(--h) !important; transform: var(--fit) !important; }
+.web-wide .list { left: 50%; right: auto; width: 820px; transform: translateX(-50%); display: grid; grid-template-columns: 1fr 1fr; }
+
 /* 게임 고르는 화면: 웹에선 닫을 창이 없고 키보드 안내도 필요 없음 */
 #menu ~ #x, #menu .foot { display: none; }
 /* 그 자리에 진동 켜기/끄기 (web-mobile.js가 만듦) */
