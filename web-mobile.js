@@ -49,6 +49,15 @@
   // 길게 누를 때 뜨는 메뉴, 아이폰 두 손가락 확대 막기
   addEventListener('contextmenu', (e) => e.preventDefault());
   addEventListener('gesturestart', (e) => e.preventDefault());
+  // 아이폰: 빠르게 두 번 누르면(2단 점프 등) 화면을 확대해 버림. 확대 금지 설정도 무시해서 직접 막음
+  // (점프·조준은 pointer 이벤트라 그대로 되고, 막히는 건 두 번째 누름의 확대·click뿐)
+  let lastEnd = 0;
+  addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastEnd < 350 && !e.target.closest('input')) e.preventDefault();
+    lastEnd = now;
+  }, { passive: false });
+  addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });   // 두 손가락 확대
 
   // ---------- 게임별 터치 조작 ----------
   // 게임 상태(S)와 함수는 각 game.js의 것을 그대로 씀 (이 파일이 먼저 불려도 누를 때는 이미 있음)
