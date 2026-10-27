@@ -79,12 +79,13 @@
   // 게임의 효과음(sfx)이 날 때 같이 떨림. 켜기/끄기는 게임 고르는 화면에서, 저장은 이 휴대폰에
   const VIBE_KEY = 'isak.vibrate';
   const vibeOn = () => { try { return localStorage.getItem(VIBE_KEY) !== 'false'; } catch { return true; } };
-  const BIG = [80, 60, 80];
+  // 2026-10-26에 정한 느낌: 트랙터 짧게 두 번, 비료 묵직하게, 황금 이삭 톡톡톡, 부딪힘 강하게, 우산 약하게, 게임 오버 길게
+  const OVER = 300, TAPS = [20, 40, 20, 40, 20];
   const VIBES = {
-    orchard: { hit: 60, shield: 25 },
-    merge: { golden: [30, 40, 60], crack: 20, over: BIG },
-    pang: { bomb: 40, tractor: 30, drone: 30, gold: [30, 40, 60], timeup: BIG },
-    runner: { hit: 80, block: 30, smash: 40, over: BIG },
+    orchard: { hit: 80, shield: 25 },
+    merge: { golden: TAPS, crack: 20, over: OVER },
+    pang: { tractor: [25, 40, 25], bomb: 70, drone: 30, gold: TAPS, timeup: OVER },
+    runner: { hit: 80, block: 25, smash: 40, over: OVER },
   }[kind];
   if (VIBES && navigator.vibrate) {
     addEventListener('DOMContentLoaded', () => {   // game.js까지 다 불린 뒤
