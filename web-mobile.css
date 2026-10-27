@@ -32,6 +32,22 @@ body::before {
 }
 .web-vibe button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2b3a2e; }
 .web-vibe small { font-size: 11px; color: #2b3a2e; background: rgba(255,251,230,.85); padding: 2px 8px; }
+/* 홈 화면에 추가 (web-install.js): 고르는 화면 맨 위 띠 + 순서 안내 */
+#menu:has(.web-install) .title-box { top: 54px; }   /* 띠가 있을 때만 제목을 조금 아래로 */
+.web-install { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; z-index: 5; white-space: nowrap; }
+.web-install button { font-family: 'Galmuri11', sans-serif; color: #2b3a2e; cursor: pointer; border: 3px solid #2b3a2e; box-shadow: 3px 3px 0 #2b3a2e; }
+.web-install .go { background: #fff; font-size: 15px; font-weight: 700; padding: 5px 12px; }
+.web-install .go small { font-weight: 400; font-size: 11px; color: #556; margin-left: 4px; }
+.web-install .no { background: #e4ece9; font-size: 13px; padding: 5px 9px; }
+.web-install button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #2b3a2e; }
+.web-guide { z-index: 60; }
+.web-guide .steps { text-align: left; font-size: 16px; line-height: 1.6; padding-left: 22px; margin: 6px 0 10px; }
+.web-guide .steps li { margin-bottom: 8px; }
+.web-guide .steps small { font-size: 12px; color: #667; }
+.web-guide .ico { display: inline-block; background: #fff; border: 2px solid #2b3a2e; padding: 0 4px; }
+.web-guide-arrow { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 44px; animation: web-bob 1s ease-in-out infinite; }
+@keyframes web-bob { 50% { transform: translate(-50%, 10px); } }
+
 /* 공개 순위표 (web-rank.js) */
 .web-rank-open {
   font-family: 'Galmuri14', sans-serif; font-size: 18px; color: #2b3a2e; cursor: pointer; margin-bottom: 4px;
