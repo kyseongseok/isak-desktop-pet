@@ -61,6 +61,8 @@
     layer.append(panel);
     document.getElementById('stage').append(layer);
 
+    // 서버가 보낸 시각을 이 휴대폰 시간대 날짜(월/일)로. 예전 서버는 'YYYY-MM-DD'(세계 표준시 날짜)만 보냄
+    const day = (d) => { const t = new Date(d); return d.length > 10 && !isNaN(t) ? `${String(t.getMonth() + 1).padStart(2, '0')}/${String(t.getDate()).padStart(2, '0')}` : d.slice(5).replace('-', '/'); };
     let data = null, cur = 'orchard';
     try { const saved = localStorage.getItem('isak.rankTab'); if (GAMES[saved]) cur = saved; } catch {}
     const render = () => {
@@ -71,7 +73,7 @@
       }));
       const rows = data ? data[cur] || [] : [];
       list.replaceChildren(...rows.map((x, i) => {
-        const li = el('li'); li.append(el('span', 'r', `${i + 1}`), el('span', 'n', x.name), el('span', 's', x.score.toLocaleString()), el('span', 'd', x.date.slice(5).replace('-', '/')));
+        const li = el('li'); li.append(el('span', 'r', `${i + 1}`), el('span', 'n', x.name), el('span', 's', x.score.toLocaleString()), el('span', 'd', day(x.date)));
         return li;
       }));
       msg.textContent = !data ? '불러오는 중…' : rows.length ? '이름마다 최고 점수 하나씩 · 매번 새로 불러와요' : '아직 기록이 없어요. 첫 번째가 되어 보세요!';

@@ -52,12 +52,13 @@ const rows_ = () => { const sh = sheet_(); const n = sh.getLastRow(); return n <
 const iso_ = (t) => (t instanceof Date ? t.toISOString() : String(t));
 
 // 순위표 보기: GET → { ok, games: { runner: [{ name, score, date }], ... } }
+// date는 세계 표준시 시각 전체 (날짜만 자르면 한국 오전 0~9시 기록이 전날로 보임 → 휴대폰이 제 시간대로 바꿔 보여 줌)
 function doGet() {
   const cache = CacheService.getScriptCache();
   const hit = cache.get('top');
   if (hit) return json_(JSON.parse(hit));
   const b = board_(rows_()), games = {};
-  for (const g of Object.keys(b)) games[g] = b[g].slice(0, TOP).map((x) => ({ name: x.name, score: x.score, date: iso_(x.time).slice(0, 10) }));
+  for (const g of Object.keys(b)) games[g] = b[g].slice(0, TOP).map((x) => ({ name: x.name, score: x.score, date: iso_(x.time) }));
   const res = { ok: true, games };
   cache.put('top', JSON.stringify(res), 20);   // 20초 동안은 같은 답 (여럿이 동시에 열어도 가볍게)
   return json_(res);
